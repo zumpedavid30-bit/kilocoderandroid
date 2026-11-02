@@ -15,6 +15,7 @@ import { useServer } from "../../context/server"
 import { useVSCode } from "../../context/vscode"
 import type { Provider } from "../../types/messages"
 import CustomProviderDialog from "./CustomProviderDialog"
+import ProviderAccountsDialog from "./ProviderAccountsDialog"
 import ProviderConnectDialog from "./ProviderConnectDialog"
 import ProviderSelectDialog from "./ProviderSelectDialog"
 import {
@@ -309,6 +310,19 @@ const ProvidersTab: Component = () => {
                     </Button>
                   </Show>
                   <Show when={canDisconnect(item)}>
+                    <Show when={source(item) !== "env"}>
+                      <Button
+                        size="large"
+                        variant="ghost"
+                        onClick={() =>
+                          dialog.show(() => (
+                            <ProviderAccountsDialog providerID={item.id} providerName={item.name} />
+                          ))
+                        }
+                      >
+                        Accounts
+                      </Button>
+                    </Show>
                     <Show
                       when={canChangeProviderKey(item, config().provider?.[item.id], provider.authMethods()[item.id])}
                     >

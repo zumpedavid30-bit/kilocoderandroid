@@ -233,7 +233,7 @@ function postError(
   ctx: ActionContext,
   requestId: string,
   providerID: string,
-  action: "connect" | "disconnect" | "authorize",
+  action: "connect" | "disconnect" | "authorize" | "accounts",
   message: string,
 ) {
   ctx.postMessage({ type: "providerActionError", requestId, providerID, action, message })
@@ -243,7 +243,7 @@ function validateID(
   ctx: ActionContext,
   requestId: string,
   providerID: string,
-  action: "connect" | "disconnect" | "authorize",
+  action: "connect" | "disconnect" | "authorize" | "accounts",
 ): string | null {
   const result = validateProviderIDShared(providerID)
   if ("value" in result) return result.value
@@ -390,6 +390,140 @@ export async function completeProviderOAuth(
       ctx.getErrorMessage(error) || "Failed to complete provider authorization",
     )
   }
+}
+
+async function postAccounts(ctx: ActionContext, requestId: string, providerID: string) {
+  const [listed, policy] = await Promise.all([
+    ctx.client.provider.accounts.list({ providerID }, { throwOnError: true }),
+    ctx.client.provider.accounts.policy({ providerID }, { throwOnError: true }),
+  ])
+  const accounts = (listed.data ?? []).flatMap((account) =>
+    account.type === "credential"
+      ? [
+          {
+            id: account.id,
+            label: account.label,
+            active: account.active === true,
+            enabled: account.enabled !== false,
+            priority: account.priority ?? 0,
+            ...(account.lockedUntil == null ? {} : { lockedUntil: account.lockedUntil }),
+          },
+        ]
+      : [],
+  )
+  ctx.postMessage({
+    type: "providerAccounts",
+    requestId,
+    providerID,
+    accounts,
+    strategy: policy.data?.strategy ?? "manual",
+    failover: policy.data?.failover ?? true,
+    cooldown: policy.data?.cooldown ?? 60_000,
+  })
+}
+
+async function withAccounts(
+  ctx: ActionContext,
+  requestId: string,
+  providerID: string,
+  work: (id: string) => Promise<unknown>,
+) {
+  const id = validateID(ctx, requestId, providerID, "accounts")
+  if (!id) return
+  try {
+    await work(id)
+    await postAccounts(ctx, requestId, id)
+  } catch (error) {
+    postError(ctx, requestId, id, "accounts", ctx.getErrorMessage(error) || "Failed to update provider accounts")
+  }
+}
+
+/** Reload the account list and rotation policy of one provider. */
+export async function listProviderAccounts(ctx: ActionContext, requestId: string, providerID: string) {
+  await withAccounts(ctx, requestId, providerID, async () => {})
+}
+
+/** Store an additional API key and make it the active account. */
+export async function addProviderAccount(
+  ctx: ActionContext,
+  requestId: string,
+  providerID: string,
+  apiKey: string,
+  label?: string,
+) {
+  await withAccounts(ctx, requestId, providerID, async (id) => {
+    await ctx.client.provider.accounts.add({ providerID: id, key: apiKey, label }, { throwOnError: true })
+    await ctx.disposeGlobal(`provider account add (${id})`)
+    await ctx.fetchAndSendProviders()
+  })
+}
+
+/** Pin one stored account. */
+export async function activateProviderAccount(
+  ctx: ActionContext,
+  requestId: string,
+  providerID: string,
+  credentialID: string,
+) {
+  await withAccounts(ctx, requestId, providerID, async (id) => {
+    await ctx.client.provider.accounts.activate({ credentialID }, { throwOnError: true })
+    await ctx.disposeGlobal(`provider account activate (${id})`)
+    await ctx.fetchAndSendProviders()
+  })
+}
+
+/** Keep an account stored but out of rotation, or put it back in. */
+export async function setProviderAccountEnabled(
+  ctx: ActionContext,
+  requestId: string,
+  providerID: string,
+  credentialID: string,
+  enabled: boolean,
+) {
+  await withAccounts(ctx, requestId, providerID, async () => {
+    await ctx.client.provider.accounts.enable({ credentialID, enabled }, { throwOnError: true })
+  })
+}
+
+/** Move an account up or down in priority order. */
+export async function moveProviderAccount(
+  ctx: ActionContext,
+  requestId: string,
+  providerID: string,
+  credentialID: string,
+  delta: number,
+) {
+  await withAccounts(ctx, requestId, providerID, async () => {
+    await ctx.client.provider.accounts.move({ credentialID, delta }, { throwOnError: true })
+  })
+}
+
+/** Delete one account without touching the others. */
+export async function removeProviderAccount(
+  ctx: ActionContext,
+  requestId: string,
+  providerID: string,
+  credentialID: string,
+) {
+  await withAccounts(ctx, requestId, providerID, async (id) => {
+    await ctx.client.provider.accounts.remove({ credentialID }, { throwOnError: true })
+    await ctx.disposeGlobal(`provider account remove (${id})`)
+    await ctx.fetchAndSendProviders()
+  })
+}
+
+/** Choose the rotation strategy, failover behaviour, and cooldown. */
+export async function setProviderAccountPolicy(
+  ctx: ActionContext,
+  requestId: string,
+  providerID: string,
+  policy: { strategy: "manual" | "priority" | "round-robin"; failover: boolean; cooldown: number },
+) {
+  await withAccounts(ctx, requestId, providerID, async (id) => {
+    await ctx.client.provider.accounts.setPolicy({ providerID: id, ...policy }, { throwOnError: true })
+    await ctx.disposeGlobal(`provider account policy (${id})`)
+    await ctx.fetchAndSendProviders()
+  })
 }
 
 export async function disconnectProvider(

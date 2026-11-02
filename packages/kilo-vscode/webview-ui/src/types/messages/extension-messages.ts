@@ -1585,8 +1585,29 @@ export interface ProviderActionErrorMessage {
   type: "providerActionError"
   requestId: string
   providerID: string
-  action: "authorize" | "connect" | "disconnect"
+  action: "authorize" | "connect" | "disconnect" | "accounts"
   message: string
+}
+
+/** One stored API-key account of a provider. */
+export interface ProviderAccountInfo {
+  id: string
+  label: string
+  active: boolean
+  enabled: boolean
+  priority: number
+  lockedUntil?: number
+}
+
+/** Answer to every account request: the current rotation set plus its policy. */
+export interface ProviderAccountsMessage {
+  type: "providerAccounts"
+  requestId: string
+  providerID: string
+  accounts: ProviderAccountInfo[]
+  strategy: "manual" | "priority" | "round-robin"
+  failover: boolean
+  cooldown: number
 }
 
 export interface CustomProviderModelsFetchedMessage {
@@ -1797,6 +1818,7 @@ export type ExtensionMessage =
     }
   | { type: "sessionAcknowledged"; sessionID: string; eventID: string }
   | { type: "webviewActiveChanged"; active: boolean }
+  | ProviderAccountsMessage
   | DocumentResultMessage
   | DocumentOpenMessage
   | AgentManagerFocusContextRequestedMessage

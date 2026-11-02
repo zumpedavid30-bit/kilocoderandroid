@@ -1600,6 +1600,60 @@ export interface SaveCustomProviderMessage {
   apiKeyChanged?: boolean
 }
 
+/** Multi-account management for API-key providers. */
+export interface ListProviderAccountsMessage {
+  type: "listProviderAccounts"
+  requestId: string
+  providerID: string
+}
+
+export interface AddProviderAccountMessage {
+  type: "addProviderAccount"
+  requestId: string
+  providerID: string
+  apiKey: string
+  label?: string
+}
+
+export interface ActivateProviderAccountMessage {
+  type: "activateProviderAccount"
+  requestId: string
+  providerID: string
+  credentialID: string
+}
+
+export interface EnableProviderAccountMessage {
+  type: "enableProviderAccount"
+  requestId: string
+  providerID: string
+  credentialID: string
+  enabled: boolean
+}
+
+export interface MoveProviderAccountMessage {
+  type: "moveProviderAccount"
+  requestId: string
+  providerID: string
+  credentialID: string
+  delta: number
+}
+
+export interface RemoveProviderAccountMessage {
+  type: "removeProviderAccount"
+  requestId: string
+  providerID: string
+  credentialID: string
+}
+
+export interface SetProviderAccountPolicyMessage {
+  type: "setProviderAccountPolicy"
+  requestId: string
+  providerID: string
+  strategy: "manual" | "priority" | "round-robin"
+  failover: boolean
+  cooldown: number
+}
+
 export interface FetchCustomProviderModelsMessage {
   type: "fetchCustomProviderModels"
   requestId: string
@@ -1984,6 +2038,13 @@ export type WebviewMessage =
   | DisconnectProviderMessage
   | AnacondaDesktopWebviewMessage
   | SaveCustomProviderMessage
+  | ListProviderAccountsMessage
+  | AddProviderAccountMessage
+  | ActivateProviderAccountMessage
+  | EnableProviderAccountMessage
+  | MoveProviderAccountMessage
+  | RemoveProviderAccountMessage
+  | SetProviderAccountPolicyMessage
   | FetchCustomProviderModelsMessage
   | PersistRecentsRequest
   | RequestRecentsMessage

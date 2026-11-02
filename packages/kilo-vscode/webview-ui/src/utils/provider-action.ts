@@ -1,16 +1,33 @@
 import type {
+  ActivateProviderAccountMessage,
+  AddProviderAccountMessage,
   AuthorizeProviderOAuthMessage,
   CompleteProviderOAuthMessage,
   ConnectProviderMessage,
   DisconnectProviderMessage,
+  EnableProviderAccountMessage,
   ExtensionMessage,
+  ListProviderAccountsMessage,
+  MoveProviderAccountMessage,
+  ProviderAccountsMessage,
   ProviderActionErrorMessage,
   ProviderConnectedMessage,
   ProviderDisconnectedMessage,
   ProviderOAuthReadyMessage,
+  RemoveProviderAccountMessage,
   SaveCustomProviderMessage,
+  SetProviderAccountPolicyMessage,
   WebviewMessage,
 } from "../types/messages"
+
+type AccountRequest =
+  | ListProviderAccountsMessage
+  | AddProviderAccountMessage
+  | ActivateProviderAccountMessage
+  | EnableProviderAccountMessage
+  | MoveProviderAccountMessage
+  | RemoveProviderAccountMessage
+  | SetProviderAccountPolicyMessage
 
 type ProviderRequest =
   | ConnectProviderMessage
@@ -18,13 +35,17 @@ type ProviderRequest =
   | CompleteProviderOAuthMessage
   | DisconnectProviderMessage
   | SaveCustomProviderMessage
+  | AccountRequest
 
-type ProviderRequestInput =
-  | Omit<ConnectProviderMessage, "requestId">
-  | Omit<AuthorizeProviderOAuthMessage, "requestId">
-  | Omit<CompleteProviderOAuthMessage, "requestId">
-  | Omit<DisconnectProviderMessage, "requestId">
-  | Omit<SaveCustomProviderMessage, "requestId">
+type Strip<T> = T extends unknown ? Omit<T, "requestId"> : never
+
+export type ProviderRequestInput =
+  | Strip<ConnectProviderMessage>
+  | Strip<AuthorizeProviderOAuthMessage>
+  | Strip<CompleteProviderOAuthMessage>
+  | Strip<DisconnectProviderMessage>
+  | Strip<SaveCustomProviderMessage>
+  | Strip<AccountRequest>
 
 type Transport = {
   postMessage: (message: WebviewMessage) => void
@@ -35,6 +56,7 @@ type Handlers = {
   onOAuthReady?: (message: ProviderOAuthReadyMessage) => void
   onConnected?: (message: ProviderConnectedMessage) => void
   onDisconnected?: (message: ProviderDisconnectedMessage) => void
+  onAccounts?: (message: ProviderAccountsMessage) => void
   onError?: (message: ProviderActionErrorMessage) => void
 }
 
@@ -59,6 +81,11 @@ export function createProviderAction(vscode: Transport) {
 
     if (message.type === "providerDisconnected") {
       item.onDisconnected?.(message)
+      return
+    }
+
+    if (message.type === "providerAccounts") {
+      item.onAccounts?.(message)
       return
     }
 

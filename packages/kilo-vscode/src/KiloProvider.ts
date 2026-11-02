@@ -165,6 +165,13 @@ import {
   completeProviderOAuth as completeOAuthAction,
   disconnectProvider as disconnectProviderAction,
   saveCustomProvider as saveCustomProviderAction,
+  listProviderAccounts as listProviderAccountsAction,
+  addProviderAccount as addProviderAccountAction,
+  activateProviderAccount as activateProviderAccountAction,
+  setProviderAccountEnabled as setProviderAccountEnabledAction,
+  moveProviderAccount as moveProviderAccountAction,
+  removeProviderAccount as removeProviderAccountAction,
+  setProviderAccountPolicy as setProviderAccountPolicyAction,
   resolveStoredKey,
 } from "./provider-actions"
 import type { StoredProviderKey } from "./provider-actions"
@@ -1348,6 +1355,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       if (await this.handleProfileDataMessage(message)) return
       if (this.handleMigrationMessage(message)) return
       if (this.handleNotificationSettingsMessage(message)) return
+      if (await this.handleAccountMessage(message)) return
       switch (message.type) {
         case "requestWorkspaceScope":
           this.sendWorkspaceScope()
@@ -1943,6 +1951,22 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       return true
     }
     return false
+  }
+
+  /** Provider account traffic, kept out of the main switch to bound its complexity. */
+  private async handleAccountMessage(message: { type: string }): Promise<boolean> {
+    const types = [
+      "listProviderAccounts",
+      "addProviderAccount",
+      "activateProviderAccount",
+      "enableProviderAccount",
+      "moveProviderAccount",
+      "removeProviderAccount",
+      "setProviderAccountPolicy",
+    ]
+    if (!types.includes(message.type)) return false
+    await this.handleProviderAction(message as Record<string, unknown>)
+    return true
   }
 
   /** Notifications settings traffic, kept out of the main switch to bound its complexity. */
@@ -2988,6 +3012,24 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     if (msg.type === "authorizeProviderOAuth") return authorizeOAuthAction(ctx, rid, pid, method, inputs)
     if (msg.type === "completeProviderOAuth") return completeOAuthAction(ctx, rid, pid, method, code)
     if (msg.type === "disconnectProvider") return disconnectProviderAction(ctx, rid, pid, this.cachedConfigMessage, set)
+    const cid = typeof msg.credentialID === "string" ? msg.credentialID : undefined
+    const lbl = typeof msg.label === "string" ? msg.label : undefined
+    const step = typeof msg.delta === "number" ? msg.delta : 0
+    const picked =
+      msg.strategy === "manual" || msg.strategy === "priority" || msg.strategy === "round-robin"
+        ? msg.strategy
+        : "manual"
+    const failover = msg.failover === true
+    const cooldown = typeof msg.cooldown === "number" ? msg.cooldown : 60_000
+    if (msg.type === "listProviderAccounts") return listProviderAccountsAction(ctx, rid, pid)
+    if (msg.type === "addProviderAccount" && key) return addProviderAccountAction(ctx, rid, pid, key, lbl)
+    if (msg.type === "activateProviderAccount" && cid) return activateProviderAccountAction(ctx, rid, pid, cid)
+    if (msg.type === "enableProviderAccount" && cid)
+      return setProviderAccountEnabledAction(ctx, rid, pid, cid, msg.enabled === true)
+    if (msg.type === "moveProviderAccount" && cid) return moveProviderAccountAction(ctx, rid, pid, cid, step)
+    if (msg.type === "removeProviderAccount" && cid) return removeProviderAccountAction(ctx, rid, pid, cid)
+    if (msg.type === "setProviderAccountPolicy")
+      return setProviderAccountPolicyAction(ctx, rid, pid, { strategy: picked, failover, cooldown })
     if (msg.type === "saveCustomProvider" && config)
       return saveCustomProviderAction(ctx, rid, pid, config, key, keyChanged, this.cachedConfigMessage, set)
   }
