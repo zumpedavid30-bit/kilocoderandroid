@@ -17,6 +17,8 @@ import { DialogKiloTeamSelect } from "./components/dialog-kilo-team-select.js"
 import { DialogKiloProfile } from "./components/dialog-kilo-profile.js"
 import { DialogIndexing } from "./components/dialog-indexing.js"
 import { DialogProviderUsage } from "./components/dialog-provider-usage.js"
+import { DialogAccounts } from "./cli/cmd/tui/component/dialog-accounts.js"
+import { DialogSelect } from "@tui/ui/dialog-select"
 import { indexingEnabled } from "./indexing-feature"
 import { refreshBalance } from "./balance-refresh"
 import { showAboutDialog } from "./cli/cmd/tui/component/dialog-about.js"
@@ -294,6 +296,34 @@ export function registerKiloCommands(useSDK: () => UseSDK) {
           } catch (error) {
             dialog.replace(() => <DialogAlert title="Error" message={`Failed to fetch teams: ${error}`} />)
           }
+        },
+      },
+
+      // /accounts command
+      {
+        name: "kilo.accounts",
+        title: "Provider accounts",
+        desc: "Add, switch, disable, and reorder API keys per provider",
+        category: "Kilo",
+        slashName: "accounts",
+        slashAliases: ["keys", "apikeys"],
+        run: () => {
+          const connected = new Set(sync.data.provider_next.connected)
+          dialog.replace(() => (
+            <DialogSelect
+              title="Provider accounts"
+              options={sync.data.provider_next.all
+                .filter((provider) => connected.has(provider.id) && provider.id !== "kilo")
+                .map((provider) => ({
+                  title: provider.name,
+                  value: provider.id,
+                  onSelect: () =>
+                    dialog.replace(() => (
+                      <DialogAccounts providerID={provider.id} providerName={provider.name} />
+                    )),
+                }))}
+            />
+          ))
         },
       },
 

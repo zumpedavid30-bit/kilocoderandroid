@@ -217,10 +217,3 @@ export function DialogAccounts(props: { providerID: string; providerName?: strin
 
   return <DialogAlert title="Provider accounts" message={error() ?? "Reading stored accounts…"} />
 }
-
-export function showAccounts(
-  dialog: ReturnType<typeof useDialog>,
-  props: { providerID: string; providerName?: string },
-) {
-  dialog.replace(() => <DialogAccounts providerID={props.providerID} providerName={props.providerName} />)
-}
