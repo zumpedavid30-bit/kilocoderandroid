@@ -39,6 +39,7 @@ import { MAX_STEPS_PROMPT } from "./max-steps"
 import { Snapshot } from "../../snapshot"
 import { makeLocationNode } from "../../effect/app-node"
 import { llmClient } from "../../effect/app-node-platform"
+import { MAX_ACCOUNT_ATTEMPTS, failoverable } from "../../kilocode/accounts/failover" // kilocode_change
 
 /**
  * Runs one durable coding-agent Session until it settles.
@@ -154,6 +155,9 @@ const layer = Layer.effect(
       | { readonly _tag: "ContinueAfterCompaction"; readonly step: number }
       // Overflow compaction completed; rebuild once through the path without overflow recovery.
       | { readonly _tag: "ContinueAfterOverflowCompaction"; readonly step: number }
+      // kilocode_change start - the serving account failed; rebuild the request with the next account
+      | { readonly _tag: "ContinueAfterAccountFailover"; readonly step: number; readonly attempt: number }
+      // kilocode_change end
 
     class TurnTransitionError extends Error {
       constructor(readonly transition: TurnTransition) {
@@ -164,6 +168,10 @@ const layer = Layer.effect(
     const continueAfterCompaction = (step: number) => new TurnTransitionError({ _tag: "ContinueAfterCompaction", step })
     const continueAfterOverflowCompaction = (step: number) =>
       new TurnTransitionError({ _tag: "ContinueAfterOverflowCompaction", step })
+    // kilocode_change start - transparent account retry
+    const continueAfterAccountFailover = (step: number, attempt: number) =>
+      new TurnTransitionError({ _tag: "ContinueAfterAccountFailover", step, attempt })
+    // kilocode_change end
 
     const loadSystemContext = (agent: AgentV2.Selection) =>
       Effect.all([systemContext.load(), skillGuidance.load(agent), referenceGuidance.load()], {
@@ -175,6 +183,7 @@ const layer = Layer.effect(
       promotion: SessionInput.Delivery | undefined,
       step: number,
       recoverOverflow?: typeof compaction.compactAfterOverflow,
+      attempt = 0, // kilocode_change - account failover attempts consumed by this turn
     ) {
       const session = yield* getSession(sessionID)
       if (session.location.directory !== location.directory || session.location.workspaceID !== location.workspaceID)
@@ -197,7 +206,10 @@ const layer = Layer.effect(
       const system =
         // kilocode_change - pass the expected Location so a concurrent move aborts the epoch
         initialized ?? (yield* SessionContextEpoch.prepare(db, events, loadSystemContext(agent), session.id, location))
-      const model = yield* models.resolve(session)
+      // kilocode_change start - keep the resolved account so a rejected one can be rotated out
+      const picked = yield* models.select(session)
+      const model = picked.model
+      // kilocode_change end
       const entries = yield* SessionHistory.entriesForRunner(db, session.id, system.baselineSeq)
       const context = entries.map((entry) => entry.message)
       const isLastStep = agent.info?.steps !== undefined && currentStep >= agent.info.steps
@@ -237,15 +249,22 @@ const layer = Layer.effect(
       const publish = (event: LLMEvent, outputPaths: ReadonlyArray<string> = []) =>
         withPublication(publisher.publish(event, outputPaths))
       let overflowFailure: ProviderErrorEvent | undefined
+      let accountFailure: ProviderErrorEvent | undefined // kilocode_change - retry with the next account
       const providerStream = llm.stream(request).pipe(
         Stream.runForEach((event) =>
           Effect.gen(function* () {
-            if (overflowFailure || publisher.hasProviderError()) return
+            if (overflowFailure || accountFailure || publisher.hasProviderError()) return // kilocode_change
             if (LLMEvent.is.providerError(event)) {
               if (isContextOverflowFailure(event) && !publisher.hasAssistantStarted()) {
                 overflowFailure = event
                 return
               }
+              // kilocode_change start - hold back account failures so the turn can retry elsewhere
+              if (failoverable(event.message) && !publisher.hasAssistantStarted()) {
+                accountFailure = event
+                return
+              }
+              // kilocode_change end
             }
             yield* publish(event)
             if (event.type !== "tool-call" || event.providerExecuted) return
@@ -287,6 +306,12 @@ const layer = Layer.effect(
           const stream = yield* restore(providerStream).pipe(Effect.exit)
           const failure =
             stream._tag === "Failure" ? Option.getOrUndefined(Cause.findErrorOption(stream.cause)) : undefined
+          // kilocode_change start - switch accounts instead of failing the turn
+          if (accountFailure && !publisher.hasAssistantStarted() && attempt < MAX_ACCOUNT_ATTEMPTS) {
+            if (yield* restore(models.rotate(session)))
+              return yield* Effect.die(continueAfterAccountFailover(currentStep, attempt + 1))
+          }
+          // kilocode_change end
           if (
             recoverOverflow &&
             !publisher.hasAssistantStarted() &&
@@ -295,6 +320,7 @@ const layer = Layer.effect(
           )
             return yield* Effect.die(continueAfterOverflowCompaction(currentStep))
           if (overflowFailure) yield* publish(overflowFailure)
+          if (accountFailure) yield* publish(accountFailure) // kilocode_change - exhausted every account
           const llmFailure = failure instanceof LLMError ? failure : undefined
           if (llmFailure && !publisher.hasProviderError()) {
             yield* withPublication(publisher.failUnsettledTools("Provider did not return a tool result", true))
@@ -358,35 +384,41 @@ const layer = Layer.effect(
       sessionID: SessionSchema.ID,
       promotion: SessionInput.Delivery | undefined,
       step: number,
+      attempt: number, // kilocode_change - account failover attempts consumed by this turn
     ) => Effect.Effect<{ readonly needsContinuation: boolean; readonly step: number }, RunError>
 
-    const runAfterOverflowCompaction: RunTurn = Effect.fnUntraced(function* (sessionID, promotion, step) {
-      return yield* runTurnAttempt(sessionID, promotion, step).pipe(
+    // kilocode_change start - thread the account attempt counter through both turn loops
+    const runAfterOverflowCompaction: RunTurn = Effect.fnUntraced(function* (sessionID, promotion, step, attempt) {
+      return yield* runTurnAttempt(sessionID, promotion, step, undefined, attempt).pipe(
         Effect.catchDefect(
           Effect.fnUntraced(function* (defect) {
             if (!(defect instanceof TurnTransitionError)) return yield* Effect.die(defect)
             if (defect.transition._tag === "ContinueAfterOverflowCompaction")
               return yield* Effect.die("Post-compaction provider attempt cannot recover another overflow")
             yield* Effect.yieldNow
-            return yield* runAfterOverflowCompaction(sessionID, undefined, defect.transition.step)
+            return yield* runAfterOverflowCompaction(sessionID, undefined, defect.transition.step, attempt)
           }),
         ),
       )
     })
 
-    const runTurn: RunTurn = Effect.fnUntraced(function* (sessionID, promotion, step) {
-      return yield* runTurnAttempt(sessionID, promotion, step, compaction.compactAfterOverflow).pipe(
+    const runTurn: RunTurn = Effect.fnUntraced(function* (sessionID, promotion, step, attempt) {
+      return yield* runTurnAttempt(sessionID, promotion, step, compaction.compactAfterOverflow, attempt).pipe(
         Effect.catchDefect(
           Effect.fnUntraced(function* (defect) {
             if (!(defect instanceof TurnTransitionError)) return yield* Effect.die(defect)
             yield* Effect.yieldNow
             if (defect.transition._tag === "ContinueAfterOverflowCompaction")
-              return yield* runAfterOverflowCompaction(sessionID, undefined, defect.transition.step)
-            return yield* runTurn(sessionID, undefined, defect.transition.step)
+              return yield* runAfterOverflowCompaction(sessionID, undefined, defect.transition.step, attempt)
+            // a switched account restarts the same step with the next account
+            if (defect.transition._tag === "ContinueAfterAccountFailover")
+              return yield* runTurn(sessionID, undefined, defect.transition.step, defect.transition.attempt)
+            return yield* runTurn(sessionID, undefined, defect.transition.step, attempt)
           }),
         ),
       )
     })
+    // kilocode_change end
 
     const run = Effect.fn("SessionRunner.run")(function* (input: {
       readonly sessionID: SessionSchema.ID
@@ -402,7 +434,7 @@ const layer = Layer.effect(
         let needsContinuation = true
         let step = 1
         while (needsContinuation) {
-          const result = yield* runTurn(input.sessionID, promotion, step)
+          const result = yield* runTurn(input.sessionID, promotion, step, 0) // kilocode_change - start without failover attempts
           needsContinuation = result.needsContinuation
           step = result.step + 1
           promotion = "steer"

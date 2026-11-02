@@ -117,6 +117,13 @@ const connections = (input: DirectInput, accountID?: string, failure?: () => "gl
       oauth: () => Effect.die("unused"),
       update: () => Effect.void,
       remove: () => Effect.void,
+      candidates: () => Effect.succeed([]),
+      activate: () => Effect.void,
+      setEnabled: () => Effect.void,
+      move: () => Effect.void,
+      failover: () => Effect.succeed(false),
+      policy: () => Effect.succeed(Credential.defaultPolicy),
+      setPolicy: () => Effect.void,
     },
     attempt: {
       status: () => Effect.die("unused"),

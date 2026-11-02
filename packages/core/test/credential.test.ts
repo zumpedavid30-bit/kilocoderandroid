@@ -57,10 +57,16 @@ describe("Credential", () => {
             label: "Replacement",
             value: Credential.Key.make({ type: "key", key: "replacement" }),
           })
-          expect(yield* credentials.list(integrationID)).toEqual([replacement])
+          // kilocode_change start - a second credential is stored as an additional account
+          expect((yield* credentials.list(integrationID)).map((item) => item.id)).toEqual([created.id, replacement.id])
+          expect((yield* credentials.active(integrationID))?.id).toBe(replacement.id)
 
           yield* credentials.remove(replacement.id)
+          expect((yield* credentials.list(integrationID)).map((item) => item.id)).toEqual([created.id])
+          expect((yield* credentials.active(integrationID))?.id).toBe(created.id)
+          yield* credentials.remove(created.id)
           expect(yield* credentials.list(integrationID)).toEqual([])
+          // kilocode_change end
         }).pipe(Effect.provide(localLayer(tmp.path))),
       (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
     ),
@@ -304,10 +310,12 @@ describe("Credential", () => {
             "legacy-reader": { type: "api", key: "second" },
           })
 
+          // kilocode_change start - removing the active account falls back to the remaining one
           yield* service.remove(replacement.id)
-          expect(yield* Effect.promise(() => Bun.file(path.join(tmp.path, "auth.json")).json())).not.toHaveProperty(
-            "legacy-reader",
-          )
+          expect(yield* Effect.promise(() => Bun.file(path.join(tmp.path, "auth.json")).json())).toMatchObject({
+            "legacy-reader": { type: "api", key: "first" },
+          })
+          // kilocode_change end
 
           const file = path.join(tmp.path, "auth.json")
           yield* Effect.promise(() => Bun.write(file, "{"))

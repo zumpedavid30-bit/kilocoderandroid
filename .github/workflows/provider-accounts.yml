@@ -1,0 +1,67 @@
+# kilocode_change - new file
+name: provider-accounts
+
+# Focused build for the multi-account provider feature: typecheck, rotate tests,
+# and a CLI build artifact. Runs on every branch so forks get the same signal.
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: typecheck core + cli + vscode
+    runs-on: ${{ github.repository == 'Kilo-Org/kilocode' && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Typecheck core
+        working-directory: packages/core
+        run: bun run typecheck
+      - name: Typecheck cli
+        working-directory: packages/opencode
+        run: bun run typecheck
+      - name: Typecheck vscode extension
+        working-directory: packages/kilo-vscode
+        run: bun run typecheck
+
+  test:
+    name: account rotation tests
+    runs-on: ${{ github.repository == 'Kilo-Org/kilocode' && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Credential and integration tests
+        working-directory: packages/core
+        run: bun test ./test/credential.test.ts ./test/integration.test.ts ./test/accounts.test.ts
+      - name: Build cli
+        working-directory: packages/opencode
+        run: bun run script/build.ts --single --skip-install
+      - name: Upload cli artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kilo-cli-provider-accounts
+          path: packages/opencode/dist/**/bin/kilo
+          if-no-files-found: warn
+          retention-days: 7

@@ -73,12 +73,33 @@ export type Error =
 
 export interface Interface {
   readonly resolve: (session: SessionSchema.Info) => Effect.Effect<Model, Error>
+  // kilocode_change start - multi-account failover
+  /** Resolves a model together with the integration whose account serves it. */
+  readonly select: (
+    session: SessionSchema.Info,
+  ) => Effect.Effect<{ readonly model: Model; readonly integrationID: Integration.ID }, Error>
+  /** Cools down the account that just failed and reports whether a retry can use another one. */
+  readonly rotate: (session: SessionSchema.Info) => Effect.Effect<boolean, Error>
+  // kilocode_change end
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/v2/SessionRunnerModel") {}
 
 /** Test or embedding seam for supplying a model resolver directly. */
-export const layerWith = (resolve: Interface["resolve"]) => Layer.succeed(Service, Service.of({ resolve }))
+// kilocode_change start - a fixed resolver cannot rotate accounts
+export const layerWith = (resolve: Interface["resolve"]) =>
+  Layer.succeed(
+    Service,
+    Service.of({
+      resolve,
+      select: (session) =>
+        resolve(session).pipe(
+          Effect.map((model) => ({ model, integrationID: Integration.ID.make(model.provider) })),
+        ),
+      rotate: () => Effect.succeed(false),
+    }),
+  )
+// kilocode_change end
 
 const apiKey = (model: ModelV2.Info, credential?: Credential.Value) => {
   if (credential?.type === "key") return Auth.value(credential.key)
@@ -194,34 +215,41 @@ export const locationLayer = Layer.effect(
   Effect.gen(function* () {
     const catalog = yield* Catalog.Service
     const integrations = yield* Integration.Service
-    return Service.of({
-      resolve: Effect.fn("SessionRunnerModel.resolve")(function* (session) {
-        // Location plugins populate and filter the catalog asynchronously during layer startup.
-        const defaultModel = session.model ? undefined : yield* catalog.model.default()
-        const selected = session.model
-          ? (yield* catalog.model.available()).find(
-              (model) => model.providerID === session.model?.providerID && model.id === session.model.id,
-            )
-          : defaultModel && supported(defaultModel)
-            ? defaultModel
-            : (yield* catalog.model.available()).find(supported)
-        if (!selected && session.model)
-          return yield* new ModelUnavailableError({
-            providerID: session.model.providerID,
-            modelID: session.model.id,
-          })
-        if (!selected) return yield* new ModelNotSelectedError({ sessionID: session.id })
-        const provider = yield* catalog.provider.get(selected.providerID)
-        const connection = yield* integrations.connection.active(
-          provider?.integrationID ?? Integration.ID.make(selected.providerID),
-        )
-        return yield* resolve(
-          session,
-          selected,
-          connection ? yield* integrations.connection.resolve(connection) : undefined,
-        )
-      }),
+    // kilocode_change start - resolve the account that serves the request through the rotation policy
+    const target = Effect.fn("SessionRunnerModel.target")(function* (session: SessionSchema.Info) {
+      // Location plugins populate and filter the catalog asynchronously during layer startup.
+      const defaultModel = session.model ? undefined : yield* catalog.model.default()
+      const selected = session.model
+        ? (yield* catalog.model.available()).find(
+            (model) => model.providerID === session.model?.providerID && model.id === session.model.id,
+          )
+        : defaultModel && supported(defaultModel)
+          ? defaultModel
+          : (yield* catalog.model.available()).find(supported)
+      if (!selected && session.model)
+        return yield* new ModelUnavailableError({
+          providerID: session.model.providerID,
+          modelID: session.model.id,
+        })
+      if (!selected) return yield* new ModelNotSelectedError({ sessionID: session.id })
+      const provider = yield* catalog.provider.get(selected.providerID)
+      const integrationID = provider?.integrationID ?? Integration.ID.make(selected.providerID)
+      return { selected, integrationID, connection: yield* integrations.connection.active(integrationID) }
     })
+    const build = Effect.fn("SessionRunnerModel.build")(function* (session: SessionSchema.Info) {
+      const picked = yield* target(session)
+      const credential = picked.connection
+        ? yield* integrations.connection.resolve(picked.connection)
+        : undefined
+      return { model: yield* resolve(session, picked.selected, credential), integrationID: picked.integrationID }
+    })
+    return Service.of({
+      resolve: (session) => build(session).pipe(Effect.map((picked) => picked.model)),
+      select: build,
+      rotate: (session) =>
+        target(session).pipe(Effect.flatMap((picked) => integrations.connection.failover(picked.integrationID))),
+    })
+    // kilocode_change end
   }),
 )
 

@@ -212,6 +212,498 @@
         ]
       }
     },
+    "/provider/{providerID}/accounts": {
+      "get": {
+        "tags": ["control"],
+        "operationId": "provider.accounts.list",
+        "parameters": [
+          {
+            "name": "providerID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stored accounts of one provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectionInfo"
+                  },
+                  "description": "Stored accounts of one provider"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "List every stored account of one provider in priority order.",
+        "summary": "List provider accounts",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createKiloClient } from \"@kilocode/sdk\"\n\nconst client = createKiloClient()\nawait client.provider.accounts.list({\n  ...\n})"
+          }
+        ]
+      },
+      "post": {
+        "tags": ["control"],
+        "operationId": "provider.accounts.add",
+        "parameters": [
+          {
+            "name": "providerID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean",
+                  "description": "Account stored"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Store an additional API key and make it the active account.",
+        "summary": "Add provider account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "API key for the additional account"
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": ["key"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createKiloClient } from \"@kilocode/sdk\"\n\nconst client = createKiloClient()\nawait client.provider.accounts.add({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/provider/{providerID}/accounts/policy": {
+      "get": {
+        "tags": ["control"],
+        "operationId": "provider.accounts.policy",
+        "parameters": [
+          {
+            "name": "providerID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account rotation policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Return how the provider rotates between its stored accounts.",
+        "summary": "Get rotation policy",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createKiloClient } from \"@kilocode/sdk\"\n\nconst client = createKiloClient()\nawait client.provider.accounts.policy({\n  ...\n})"
+          }
+        ]
+      },
+      "put": {
+        "tags": ["control"],
+        "operationId": "provider.accounts.setPolicy",
+        "parameters": [
+          {
+            "name": "providerID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean",
+                  "description": "Policy stored"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Choose the account rotation strategy, failover, and cooldown.",
+        "summary": "Set rotation policy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialPolicy"
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createKiloClient } from \"@kilocode/sdk\"\n\nconst client = createKiloClient()\nawait client.provider.accounts.setPolicy({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/provider-account/{credentialID}/active": {
+      "put": {
+        "tags": ["control"],
+        "operationId": "provider.accounts.activate",
+        "parameters": [
+          {
+            "name": "credentialID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account activated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean",
+                  "description": "Account activated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Pin one stored account for the provider.",
+        "summary": "Activate provider account",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createKiloClient } from \"@kilocode/sdk\"\n\nconst client = createKiloClient()\nawait client.provider.accounts.activate({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/provider-account/{credentialID}/enabled": {
+      "put": {
+        "tags": ["control"],
+        "operationId": "provider.accounts.enable",
+        "parameters": [
+          {
+            "name": "credentialID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean",
+                  "description": "Account updated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Keep an account stored but out of rotation, or put it back in.",
+        "summary": "Enable or disable provider account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["enabled"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createKiloClient } from \"@kilocode/sdk\"\n\nconst client = createKiloClient()\nawait client.provider.accounts.enable({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/provider-account/{credentialID}/move": {
+      "post": {
+        "tags": ["control"],
+        "operationId": "provider.accounts.move",
+        "parameters": [
+          {
+            "name": "credentialID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account reordered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean",
+                  "description": "Account reordered"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Move an account up or down in priority order.",
+        "summary": "Reorder provider account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "delta": {
+                    "type": "number",
+                    "description": "-1 moves up, 1 moves down"
+                  }
+                },
+                "required": ["delta"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createKiloClient } from \"@kilocode/sdk\"\n\nconst client = createKiloClient()\nawait client.provider.accounts.move({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/provider-account/{credentialID}": {
+      "delete": {
+        "tags": ["control"],
+        "operationId": "provider.accounts.remove",
+        "parameters": [
+          {
+            "name": "credentialID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean",
+                  "description": "Account removed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Delete one stored account without touching the others.",
+        "summary": "Remove provider account",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createKiloClient } from \"@kilocode/sdk\"\n\nconst client = createKiloClient()\nawait client.provider.accounts.remove({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/experimental/control-plane/move-session": {
       "post": {
         "tags": ["controlPlane"],
@@ -46741,6 +47233,82 @@
           }
         ]
       },
+      "ConnectionCredentialInfo": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["credential"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lockedUntil": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["type", "id", "label"],
+        "additionalProperties": false
+      },
+      "ConnectionEnvInfo": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["env"]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["type", "name"],
+        "additionalProperties": false
+      },
+      "ConnectionInfo": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ConnectionCredentialInfo"
+          },
+          {
+            "$ref": "#/components/schemas/ConnectionEnvInfo"
+          }
+        ]
+      },
+      "CredentialStrategy": {
+        "type": "string",
+        "enum": ["manual", "priority", "round-robin"]
+      },
+      "CredentialPolicy": {
+        "type": "object",
+        "properties": {
+          "strategy": {
+            "$ref": "#/components/schemas/CredentialStrategy"
+          },
+          "failover": {
+            "type": "boolean"
+          },
+          "cooldown": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["strategy", "failover", "cooldown"],
+        "additionalProperties": false
+      },
       "MoveSessionDestination": {
         "type": "object",
         "properties": {
@@ -57137,47 +57705,6 @@
         },
         "required": ["type", "names"],
         "additionalProperties": false
-      },
-      "ConnectionCredentialInfo": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["credential"]
-          },
-          "id": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          }
-        },
-        "required": ["type", "id", "label"],
-        "additionalProperties": false
-      },
-      "ConnectionEnvInfo": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["env"]
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": ["type", "name"],
-        "additionalProperties": false
-      },
-      "ConnectionInfo": {
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/ConnectionCredentialInfo"
-          },
-          {
-            "$ref": "#/components/schemas/ConnectionEnvInfo"
-          }
-        ]
       },
       "IntegrationInfo": {
         "type": "object",

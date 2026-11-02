@@ -56,6 +56,7 @@ export default {
           CONSTRAINT \`control_account_pk\` PRIMARY KEY(\`email\`, \`url\`)
         );
       `)
+      // kilocode_change start
       yield* tx.run(`
         CREATE TABLE \`credential\` (
           \`id\` text PRIMARY KEY,
@@ -65,10 +66,25 @@ export default {
           \`connector_id\` text,
           \`method_id\` text,
           \`active\` integer,
+          \`enabled\` integer DEFAULT true NOT NULL,
+          \`priority\` integer DEFAULT 0 NOT NULL,
+          \`locked_until\` integer,
+          \`last_used\` integer,
           \`time_created\` integer NOT NULL,
           \`time_updated\` integer NOT NULL
         );
       `)
+      // kilocode_change end
+      // kilocode_change start
+      yield* tx.run(`
+        CREATE TABLE \`credential_policy\` (
+          \`integration_id\` text PRIMARY KEY,
+          \`strategy\` text NOT NULL,
+          \`failover\` integer NOT NULL,
+          \`cooldown\` integer NOT NULL
+        );
+      `)
+      // kilocode_change end
       yield* tx.run(`
         CREATE TABLE \`event_sequence\` (
           \`aggregate_id\` text PRIMARY KEY,

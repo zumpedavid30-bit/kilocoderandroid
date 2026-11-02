@@ -1,6 +1,6 @@
 export * as Credential from "./credential"
 
-import { asc, desc, eq } from "drizzle-orm" // kilocode_change
+import { asc, eq } from "drizzle-orm" // kilocode_change
 // kilocode_change start
 import { Context, Effect, Layer, Option, Schema, Semaphore } from "effect"
 // kilocode_change end
@@ -8,7 +8,7 @@ import { Credential } from "@opencode-ai/schema/credential"
 import { Integration } from "@opencode-ai/schema/integration"
 import { Database } from "./database/database"
 import { makeGlobalNode } from "./effect/app-node"
-import { CredentialTable } from "./credential/sql"
+import { CredentialTable, PolicyTable } from "./credential/sql" // kilocode_change
 // kilocode_change start
 import { FSUtil } from "./fs-util"
 import { Global } from "./global"
@@ -31,11 +31,30 @@ export type Key = Credential.Key
 export const Value = Credential.Value
 export type Value = Credential.Value
 
+// kilocode_change start - multi-account rotation
+export const Strategy = Credential.Strategy
+export type Strategy = Credential.Strategy
+
+export const Policy = Credential.Policy
+export type Policy = Credential.Policy
+
+export const defaultPolicy = Credential.defaultPolicy
+/** Default label for a stored secret, derived from its suffix. */
+export const suffix = Credential.suffix
+// kilocode_change end
+
 export class Info extends Schema.Class<Info>("Credential.Info")({
   id: ID,
   integrationID: Integration.ID,
   label: Schema.String,
   value: Value,
+  // kilocode_change start - multi-account rotation state
+  active: Schema.optional(Schema.Boolean),
+  enabled: Schema.optional(Schema.Boolean),
+  priority: Schema.optional(NonNegativeInt),
+  lockedUntil: Schema.optional(NonNegativeInt),
+  lastUsed: Schema.optional(NonNegativeInt),
+  // kilocode_change end
 }) {}
 
 // kilocode_change start - legacy JSON credential stores that predate the integration credential table
@@ -88,11 +107,16 @@ const legacyValue = (integration: Integration.ID, credential: Schema.Schema.Type
 export interface Interface {
   /** Returns every stored credential. */
   readonly all: () => Effect.Effect<Info[]>
-  /** Returns stored credentials belonging to one integration. */
+  /** Returns stored credentials belonging to one integration, ordered by priority. */
   readonly list: (integrationID: Integration.ID) => Effect.Effect<Info[]>
   /** Returns one stored credential by ID. */
   readonly get: (id: ID) => Effect.Effect<Info | undefined>
-  /** Replaces any credential for an integration and returns the new record. */
+  /**
+   * Stores a credential and makes it the active account of its integration.
+   *
+   * Other accounts of the same integration are kept, so callers can build a
+   * rotation set instead of replacing the previous credential.
+   */
   readonly create: (input: {
     readonly integrationID: Integration.ID
     readonly value: Value
@@ -102,6 +126,31 @@ export interface Interface {
   readonly update: (id: ID, updates: Partial<Pick<Info, "label" | "value">>) => Effect.Effect<void>
   /** Removes a stored credential. */
   readonly remove: (id: ID) => Effect.Effect<void>
+  // kilocode_change start - multi-account management
+  /** Stores an additional account without touching the existing ones. */
+  readonly add: (input: {
+    readonly integrationID: Integration.ID
+    readonly value: Value
+    readonly label?: string
+    readonly priority?: number
+  }) => Effect.Effect<Info>
+  /** Returns the pinned account, or the first stored account. */
+  readonly active: (integrationID: Integration.ID) => Effect.Effect<Info | undefined>
+  /** Pins an account and clears its cooldown. */
+  readonly activate: (id: ID) => Effect.Effect<void>
+  /** Enables or disables an account without deleting it. */
+  readonly setEnabled: (id: ID, enabled: boolean) => Effect.Effect<void>
+  /** Moves an account up (`-1`) or down (`1`) in priority order. */
+  readonly move: (id: ID, delta: number) => Effect.Effect<void>
+  /** Keeps an account out of rotation until the given epoch millisecond. */
+  readonly lock: (id: ID, until: number) => Effect.Effect<void>
+  /** Records that an account served a request. */
+  readonly touch: (id: ID) => Effect.Effect<void>
+  /** Returns the rotation policy of an integration. */
+  readonly policy: (integrationID: Integration.ID) => Effect.Effect<Policy>
+  /** Replaces the rotation policy of an integration. */
+  readonly setPolicy: (integrationID: Integration.ID, policy: Policy) => Effect.Effect<void>
+  // kilocode_change end
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/v2/Credential") {}
@@ -142,7 +191,7 @@ export const legacyImportLayer = Layer.effectDiscard(
                 used.add(current.id)
                 yield* tx
                   .update(CredentialTable)
-                  .set({ time_created: time, time_updated: time })
+                  .set({ time_created: time, time_updated: time, active: item.active })
                   .where(eq(CredentialTable.id, current.id))
                   .run()
                 continue
@@ -152,6 +201,9 @@ export const legacyImportLayer = Layer.effectDiscard(
                 integration_id: integration,
                 label: item.label,
                 value,
+                active: item.active,
+                enabled: true,
+                priority: index,
                 time_created: time,
                 time_updated: time,
               })
@@ -172,12 +224,13 @@ export const legacyImportLayer = Layer.effectDiscard(
       return [{ integration, value: legacyValue(integration, decoded.value) }]
     })
     const migrated = yield* db.select().from(DataMigrationTable).where(eq(DataMigrationTable.name, name)).get()
-    const existing = yield* db.select().from(CredentialTable).orderBy(desc(CredentialTable.time_created)).all()
+    const existing = yield* db.select().from(CredentialTable).all()
     const same = (left: Value, right: Value) => JSON.stringify(left) === JSON.stringify(right)
+    const active = (rows: typeof existing) => rows.find((row) => row.active === true) ?? rows.at(-1)
     if (
       migrated &&
       values.every((item) => {
-        const current = existing.find((row) => row.integration_id === item.integration)
+        const current = active(existing.filter((row) => row.integration_id === item.integration))
         return current !== undefined && same(current.value, item.value)
       })
     )
@@ -186,12 +239,12 @@ export const legacyImportLayer = Layer.effectDiscard(
       Effect.gen(function* () {
         for (const item of values) {
           // reconcile on every startup so a released client can update auth.json after import.
-          const current = yield* tx
+          const rows = yield* tx
             .select()
             .from(CredentialTable)
             .where(eq(CredentialTable.integration_id, item.integration))
-            .orderBy(desc(CredentialTable.time_created)) // kilocode_change - reconcile the active imported account
-            .get()
+            .all()
+          const current = active(rows)
           if (current) {
             if (!same(current.value, item.value))
               yield* tx
@@ -206,6 +259,9 @@ export const legacyImportLayer = Layer.effectDiscard(
             integration_id: item.integration,
             label: "Imported",
             value: item.value,
+            active: true,
+            enabled: true,
+            priority: 0,
           })
         }
         yield* tx.insert(DataMigrationTable).values({ name, time_completed: Date.now() }).onConflictDoNothing().run()
@@ -238,6 +294,13 @@ export const layer = Layer.effect(
         integrationID: row.integration_id,
         label: row.label,
         value: decode(row.value),
+        // kilocode_change start - rotation state
+        active: row.active === true,
+        enabled: row.enabled !== false,
+        priority: row.priority ?? 0,
+        ...(row.locked_until == null ? {} : { lockedUntil: row.locked_until }),
+        ...(row.last_used == null ? {} : { lastUsed: row.last_used }),
+        // kilocode_change end
       })
     }
 
@@ -268,6 +331,9 @@ export const layer = Layer.effect(
                         integrationID: integration,
                         label: "Environment",
                         value: legacyValue(integration, decoded.value),
+                        active: true,
+                        enabled: true,
+                        priority: 0,
                       }),
                     ] as const,
                   ]
@@ -304,13 +370,14 @@ export const layer = Layer.effect(
             typeof raw === "object" && raw !== null && !Array.isArray(raw)
               ? { ...(raw as Record<string, unknown>) }
               : {}
-          const row = yield* db
+          const saved = yield* db
             .select()
             .from(CredentialTable)
             .where(eq(CredentialTable.integration_id, integration))
-            .orderBy(desc(CredentialTable.time_created)) // kilocode_change - persist the active imported account
-            .get()
+            .all()
             .pipe(Effect.orDie)
+          // kilocode_change - persist the active account so released clients read the pinned one
+          const row = saved.find((row) => row.active === true) ?? saved.at(-1)
           delete data[integration + "/"]
           if (!row) delete data[integration]
           else {
@@ -332,7 +399,109 @@ export const layer = Layer.effect(
       )
     // kilocode_change end
 
-    return Service.of({
+    // kilocode_change start - multi-account rotation helpers
+    const rows = (integration: Integration.ID) =>
+      db
+        .select()
+        .from(CredentialTable)
+        .where(eq(CredentialTable.integration_id, integration))
+        .orderBy(asc(CredentialTable.priority), asc(CredentialTable.time_created))
+        .all()
+        .pipe(Effect.orDie)
+
+    const activate = Effect.fn("Credential.activate")(function* (id: ID) {
+      if (isolated) return
+      const row = yield* db.select().from(CredentialTable).where(eq(CredentialTable.id, id)).get().pipe(Effect.orDie)
+      if (!row?.integration_id) return
+      yield* db
+        .transaction((tx) =>
+          Effect.gen(function* () {
+            yield* tx
+              .update(CredentialTable)
+              .set({ active: false })
+              .where(eq(CredentialTable.integration_id, row.integration_id!))
+              .run()
+            yield* tx
+              .update(CredentialTable)
+              .set({ active: true, locked_until: null })
+              .where(eq(CredentialTable.id, id))
+              .run()
+          }),
+        )
+        .pipe(Effect.orDie)
+      yield* writeLegacy(row.integration_id)
+    })
+
+    const add = Effect.fn("Credential.add")(function* (input: {
+      integrationID: Integration.ID
+      value: Value
+      label?: string
+      priority?: number
+    }) {
+      if (isolated) {
+        const credential = new Info({
+          id: ID.create(),
+          integrationID: input.integrationID,
+          label: input.label ?? suffix(input.value),
+          value: input.value,
+          active: true,
+          enabled: true,
+          priority: 0,
+        })
+        local.set(credential.integrationID, credential)
+        return credential
+      }
+      const credential = yield* db
+        .transaction((tx) =>
+          Effect.gen(function* () {
+            const existing = yield* tx
+              .select()
+              .from(CredentialTable)
+              .where(eq(CredentialTable.integration_id, input.integrationID))
+              .all()
+            const active = !existing.some((row) => row.active === true)
+            const next = existing.reduce((top, row) => Math.max(top, row.priority ?? 0), -1) + 1
+            const credential = new Info({
+              id: ID.create(),
+              integrationID: input.integrationID,
+              label: input.label ?? suffix(input.value),
+              value: input.value,
+              active,
+              enabled: true,
+              priority: input.priority ?? next,
+            })
+            yield* tx
+              .insert(CredentialTable)
+              .values({
+                id: credential.id,
+                integration_id: credential.integrationID,
+                label: credential.label,
+                value: credential.value,
+                active,
+                enabled: true,
+                priority: credential.priority ?? next,
+              })
+              .run()
+            return credential
+          }),
+        )
+        .pipe(Effect.orDie)
+      yield* writeLegacy(credential.integrationID)
+      return credential
+    })
+
+    const create = Effect.fn("Credential.create")(function* (input: {
+      integrationID: Integration.ID
+      value: Value
+      label?: string
+    }) {
+      const credential = yield* add(input)
+      yield* activate(credential.id)
+      return new Info({ ...credential, active: true })
+    })
+    // kilocode_change end
+
+    const service: Interface = {
       all: Effect.fn("Credential.all")(function* () {
         if (isolated) return [...local.values()] // kilocode_change
         return (yield* db
@@ -352,13 +521,7 @@ export const layer = Layer.effect(
           return credential ? [credential] : []
         }
         // kilocode_change end
-        return (yield* db
-          .select()
-          .from(CredentialTable)
-          .where(eq(CredentialTable.integration_id, integrationID))
-          .orderBy(asc(CredentialTable.time_created))
-          .all()
-          .pipe(Effect.orDie)).flatMap((row) => {
+        return (yield* rows(integrationID)).flatMap((row) => {
           const credential = stored(row)
           return credential ? [credential] : []
         })
@@ -368,41 +531,7 @@ export const layer = Layer.effect(
         const row = yield* db.select().from(CredentialTable).where(eq(CredentialTable.id, id)).get().pipe(Effect.orDie)
         return row ? stored(row) : undefined
       }),
-      create: Effect.fn("Credential.create")(function* (input) {
-        const credential = new Info({
-          id: ID.create(),
-          integrationID: input.integrationID,
-          label: input.label ?? "default",
-          value: input.value,
-        })
-        // kilocode_change start - credential changes in isolated workspaces are process-local
-        if (isolated) {
-          local.set(credential.integrationID, credential)
-          return credential
-        }
-        // kilocode_change end
-        yield* db
-          .transaction((tx) =>
-            Effect.gen(function* () {
-              yield* tx
-                .delete(CredentialTable)
-                .where(eq(CredentialTable.integration_id, credential.integrationID))
-                .run()
-              yield* tx
-                .insert(CredentialTable)
-                .values({
-                  id: credential.id,
-                  integration_id: credential.integrationID,
-                  label: credential.label,
-                  value: credential.value,
-                })
-                .run()
-            }),
-          )
-          .pipe(Effect.orDie)
-        yield* writeLegacy(credential.integrationID) // kilocode_change
-        return credential
-      }),
+      create,
       update: Effect.fn("Credential.update")(function* (id, updates) {
         if (!updates.label && !updates.value) return
         // kilocode_change start - isolated updates never reach the host database
@@ -439,9 +568,105 @@ export const layer = Layer.effect(
         const row = yield* db.select().from(CredentialTable).where(eq(CredentialTable.id, id)).get().pipe(Effect.orDie)
         // kilocode_change end
         yield* db.delete(CredentialTable).where(eq(CredentialTable.id, id)).run().pipe(Effect.orDie)
-        if (row?.integration_id) yield* writeLegacy(row.integration_id) // kilocode_change
+        // kilocode_change start - keep one account active when the pinned one is removed
+        if (row?.active && row.integration_id) {
+          const next = (yield* rows(row.integration_id)).at(-1)
+          if (next) yield* activate(next.id)
+        }
+        if (row?.integration_id) yield* writeLegacy(row.integration_id)
+        // kilocode_change end
       }),
-    })
+      // kilocode_change start - multi-account management
+      add,
+      active: Effect.fn("Credential.active")(function* (integrationID) {
+        const saved = yield* service.list(integrationID)
+        return saved.find((credential) => credential.active === true) ?? saved.at(0)
+      }),
+      activate,
+      setEnabled: Effect.fn("Credential.setEnabled")(function* (id, enabled) {
+        if (isolated) {
+          const credential = find(id)
+          if (credential) local.set(credential.integrationID, new Info({ ...credential, enabled }))
+          return
+        }
+        const row = yield* db.select().from(CredentialTable).where(eq(CredentialTable.id, id)).get().pipe(Effect.orDie)
+        yield* db
+          .update(CredentialTable)
+          .set({ enabled, ...(enabled ? { locked_until: null } : {}) })
+          .where(eq(CredentialTable.id, id))
+          .run()
+          .pipe(Effect.orDie)
+        if (row?.integration_id) yield* writeLegacy(row.integration_id)
+      }),
+      move: Effect.fn("Credential.move")(function* (id, delta) {
+        if (isolated || delta === 0) return
+        const row = yield* db.select().from(CredentialTable).where(eq(CredentialTable.id, id)).get().pipe(Effect.orDie)
+        if (!row?.integration_id) return
+        const list = yield* rows(row.integration_id)
+        const index = list.findIndex((item) => item.id === id)
+        if (index === -1) return
+        const target = list.at(index + (delta > 0 ? 1 : -1))
+        if (!target) return
+        yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              yield* tx
+                .update(CredentialTable)
+                .set({ priority: row.priority ?? 0 })
+                .where(eq(CredentialTable.id, target.id))
+                .run()
+              yield* tx
+                .update(CredentialTable)
+                .set({ priority: target.priority ?? 0 })
+                .where(eq(CredentialTable.id, id))
+                .run()
+            }),
+          )
+          .pipe(Effect.orDie)
+      }),
+      lock: Effect.fn("Credential.lock")(function* (id, until) {
+        if (isolated) return
+        yield* db
+          .update(CredentialTable)
+          .set({ locked_until: until })
+          .where(eq(CredentialTable.id, id))
+          .run()
+          .pipe(Effect.orDie)
+      }),
+      touch: Effect.fn("Credential.touch")(function* (id) {
+        if (isolated) return
+        yield* db
+          .update(CredentialTable)
+          .set({ last_used: Date.now() })
+          .where(eq(CredentialTable.id, id))
+          .run()
+          .pipe(Effect.orDie)
+      }),
+      policy: Effect.fn("Credential.policy")(function* (integrationID) {
+        if (isolated) return defaultPolicy
+        const row = yield* db
+          .select()
+          .from(PolicyTable)
+          .where(eq(PolicyTable.integration_id, integrationID))
+          .get()
+          .pipe(Effect.orDie)
+        return row
+          ? { strategy: row.strategy, failover: row.failover, cooldown: row.cooldown }
+          : defaultPolicy
+      }),
+      setPolicy: Effect.fn("Credential.setPolicy")(function* (integrationID, policy) {
+        if (isolated) return
+        yield* db
+          .insert(PolicyTable)
+          .values({ integration_id: integrationID, ...policy })
+          .onConflictDoUpdate({ target: PolicyTable.integration_id, set: policy })
+          .run()
+          .pipe(Effect.orDie)
+      }),
+      // kilocode_change end
+    }
+
+    return Service.of(service)
   }),
 )
 

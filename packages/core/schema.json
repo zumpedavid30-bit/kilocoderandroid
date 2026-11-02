@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "8e919778-bf29-4e1b-a106-88bc9d8b8b21",
+  "id": "e4521b36-b854-4607-80ec-eeeb237a81e3",
   "prevIds": [
-    "38a74186-5907-4662-9e14-e059300a8b4e"
+    "8e919778-bf29-4e1b-a106-88bc9d8b8b21"
   ],
   "ddl": [
     {
@@ -28,6 +28,10 @@
     },
     {
       "name": "credential",
+      "entityType": "tables"
+    },
+    {
+      "name": "credential_policy",
       "entityType": "tables"
     },
     {
@@ -454,6 +458,46 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "enabled",
+      "entityType": "columns",
+      "table": "credential"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "priority",
+      "entityType": "columns",
+      "table": "credential"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "locked_until",
+      "entityType": "columns",
+      "table": "credential"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_used",
+      "entityType": "columns",
+      "table": "credential"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
       "default": null,
       "generated": null,
       "name": "time_created",
@@ -469,6 +513,46 @@
       "name": "time_updated",
       "entityType": "columns",
       "table": "credential"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "integration_id",
+      "entityType": "columns",
+      "table": "credential_policy"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "strategy",
+      "entityType": "columns",
+      "table": "credential_policy"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "failover",
+      "entityType": "columns",
+      "table": "credential_policy"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cooldown",
+      "entityType": "columns",
+      "table": "credential_policy"
     },
     {
       "type": "text",
@@ -1992,6 +2076,15 @@
     },
     {
       "columns": [
+        "integration_id"
+      ],
+      "nameExplicit": false,
+      "name": "credential_policy_pk",
+      "table": "credential_policy",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "aggregate_id"
       ],
       "nameExplicit": false,
@@ -2504,4 +2597,3 @@
   ],
   "renames": []
 }
-

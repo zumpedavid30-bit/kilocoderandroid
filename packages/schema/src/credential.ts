@@ -33,3 +33,32 @@ export const Value = Schema.Union([OAuth, Key])
   .pipe(Schema.toTaggedUnion("type"))
   .annotate({ identifier: "Credential.Value" })
 export type Value = Schema.Schema.Type<typeof Value>
+
+// kilocode_change start - multiple stored accounts per integration
+/** How a provider picks the account used for the next request. */
+export const Strategy = Schema.Literals(["manual", "priority", "round-robin"]).annotate({
+  identifier: "Credential.Strategy",
+})
+export type Strategy = Schema.Schema.Type<typeof Strategy>
+
+/**
+ * Per-integration account rotation settings.
+ *
+ * - `manual` keeps the pinned account until the user switches.
+ * - `priority` prefers the lowest `priority` value first.
+ * - `round-robin` prefers the least recently used enabled account.
+ */
+export const Policy = Schema.Struct({
+  strategy: Strategy,
+  /** Retry a request with the next account when the active one is rejected or throttled. */
+  failover: Schema.Boolean,
+  /** Milliseconds an account stays out of rotation after a failure. */
+  cooldown: NonNegativeInt,
+}).annotate({ identifier: "Credential.Policy" })
+export type Policy = Schema.Schema.Type<typeof Policy>
+
+export const defaultPolicy: Policy = { strategy: "priority", failover: true, cooldown: 60_000 }
+
+/** Human label candidates for a stored secret; UIs offer the suffix as the default. */
+export const suffix = (value: Value) => (value.type === "key" ? value.key.slice(-4) : "account")
+// kilocode_change end

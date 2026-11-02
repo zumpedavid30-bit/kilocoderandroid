@@ -5491,6 +5491,31 @@ export type IntegrationRef = {
 
 export type SkillV2Source = SkillV2DirectorySource | SkillV2UrlSource | SkillV2EmbeddedSource
 
+export type ConnectionCredentialInfo = {
+  type: "credential"
+  id: string
+  label: string
+  active?: boolean
+  enabled?: boolean
+  priority?: number
+  lockedUntil?: number
+}
+
+export type ConnectionEnvInfo = {
+  type: "env"
+  name: string
+}
+
+export type ConnectionInfo = ConnectionCredentialInfo | ConnectionEnvInfo
+
+export type CredentialStrategy = "manual" | "priority" | "round-robin"
+
+export type CredentialPolicy = {
+  strategy: CredentialStrategy
+  failover: boolean
+  cooldown: number
+}
+
 export type MoveSessionDestination = {
   directory: string
 }
@@ -8697,19 +8722,6 @@ export type IntegrationEnvMethod = {
   names: Array<string>
 }
 
-export type ConnectionCredentialInfo = {
-  type: "credential"
-  id: string
-  label: string
-}
-
-export type ConnectionEnvInfo = {
-  type: "env"
-  name: string
-}
-
-export type ConnectionInfo = ConnectionCredentialInfo | ConnectionEnvInfo
-
 export type IntegrationInfo = {
   id: string
   name: string
@@ -11320,6 +11332,237 @@ export type AppLogResponses = {
 }
 
 export type AppLogResponse = AppLogResponses[keyof AppLogResponses]
+
+export type ProviderAccountsListData = {
+  body?: never
+  path: {
+    providerID: string
+  }
+  query?: never
+  url: "/provider/{providerID}/accounts"
+}
+
+export type ProviderAccountsListErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type ProviderAccountsListError = ProviderAccountsListErrors[keyof ProviderAccountsListErrors]
+
+export type ProviderAccountsListResponses = {
+  /**
+   * Stored accounts of one provider
+   */
+  200: Array<ConnectionInfo>
+}
+
+export type ProviderAccountsListResponse = ProviderAccountsListResponses[keyof ProviderAccountsListResponses]
+
+export type ProviderAccountsAddData = {
+  body?: {
+    /**
+     * API key for the additional account
+     */
+    key: string
+    label?: string
+  }
+  path: {
+    providerID: string
+  }
+  query?: never
+  url: "/provider/{providerID}/accounts"
+}
+
+export type ProviderAccountsAddErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type ProviderAccountsAddError = ProviderAccountsAddErrors[keyof ProviderAccountsAddErrors]
+
+export type ProviderAccountsAddResponses = {
+  /**
+   * Account stored
+   */
+  200: boolean
+}
+
+export type ProviderAccountsAddResponse = ProviderAccountsAddResponses[keyof ProviderAccountsAddResponses]
+
+export type ProviderAccountsPolicyData = {
+  body?: never
+  path: {
+    providerID: string
+  }
+  query?: never
+  url: "/provider/{providerID}/accounts/policy"
+}
+
+export type ProviderAccountsPolicyErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type ProviderAccountsPolicyError = ProviderAccountsPolicyErrors[keyof ProviderAccountsPolicyErrors]
+
+export type ProviderAccountsPolicyResponses = {
+  /**
+   * Account rotation policy
+   */
+  200: CredentialPolicy
+}
+
+export type ProviderAccountsPolicyResponse = ProviderAccountsPolicyResponses[keyof ProviderAccountsPolicyResponses]
+
+export type ProviderAccountsSetPolicyData = {
+  body?: CredentialPolicy
+  path: {
+    providerID: string
+  }
+  query?: never
+  url: "/provider/{providerID}/accounts/policy"
+}
+
+export type ProviderAccountsSetPolicyErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type ProviderAccountsSetPolicyError = ProviderAccountsSetPolicyErrors[keyof ProviderAccountsSetPolicyErrors]
+
+export type ProviderAccountsSetPolicyResponses = {
+  /**
+   * Policy stored
+   */
+  200: boolean
+}
+
+export type ProviderAccountsSetPolicyResponse =
+  ProviderAccountsSetPolicyResponses[keyof ProviderAccountsSetPolicyResponses]
+
+export type ProviderAccountsActivateData = {
+  body?: never
+  path: {
+    credentialID: string
+  }
+  query?: never
+  url: "/provider-account/{credentialID}/active"
+}
+
+export type ProviderAccountsActivateErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type ProviderAccountsActivateError = ProviderAccountsActivateErrors[keyof ProviderAccountsActivateErrors]
+
+export type ProviderAccountsActivateResponses = {
+  /**
+   * Account activated
+   */
+  200: boolean
+}
+
+export type ProviderAccountsActivateResponse =
+  ProviderAccountsActivateResponses[keyof ProviderAccountsActivateResponses]
+
+export type ProviderAccountsEnableData = {
+  body?: {
+    enabled: boolean
+  }
+  path: {
+    credentialID: string
+  }
+  query?: never
+  url: "/provider-account/{credentialID}/enabled"
+}
+
+export type ProviderAccountsEnableErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type ProviderAccountsEnableError = ProviderAccountsEnableErrors[keyof ProviderAccountsEnableErrors]
+
+export type ProviderAccountsEnableResponses = {
+  /**
+   * Account updated
+   */
+  200: boolean
+}
+
+export type ProviderAccountsEnableResponse = ProviderAccountsEnableResponses[keyof ProviderAccountsEnableResponses]
+
+export type ProviderAccountsMoveData = {
+  body?: {
+    /**
+     * -1 moves up, 1 moves down
+     */
+    delta: number
+  }
+  path: {
+    credentialID: string
+  }
+  query?: never
+  url: "/provider-account/{credentialID}/move"
+}
+
+export type ProviderAccountsMoveErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type ProviderAccountsMoveError = ProviderAccountsMoveErrors[keyof ProviderAccountsMoveErrors]
+
+export type ProviderAccountsMoveResponses = {
+  /**
+   * Account reordered
+   */
+  200: boolean
+}
+
+export type ProviderAccountsMoveResponse = ProviderAccountsMoveResponses[keyof ProviderAccountsMoveResponses]
+
+export type ProviderAccountsRemoveData = {
+  body?: never
+  path: {
+    credentialID: string
+  }
+  query?: never
+  url: "/provider-account/{credentialID}"
+}
+
+export type ProviderAccountsRemoveErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type ProviderAccountsRemoveError = ProviderAccountsRemoveErrors[keyof ProviderAccountsRemoveErrors]
+
+export type ProviderAccountsRemoveResponses = {
+  /**
+   * Account removed
+   */
+  200: boolean
+}
+
+export type ProviderAccountsRemoveResponse = ProviderAccountsRemoveResponses[keyof ProviderAccountsRemoveResponses]
 
 export type ExperimentalControlPlaneMoveSessionData = {
   body?: {

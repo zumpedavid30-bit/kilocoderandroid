@@ -144,8 +144,27 @@ export interface Interface extends State.Transformable<Draft> {
   /** Returns all integrations with their methods and current connections. */
   readonly list: () => Effect.Effect<Info[]>
   readonly connection: {
-    /** Returns the active connection for one integration. */
+    /** Returns the connection the next request uses for one integration. */ // kilocode_change
     readonly active: (id: ID) => Effect.Effect<IntegrationConnection.Info | undefined>
+    // kilocode_change start - multi-account rotation
+    /** Returns every connection of one integration in rotation order. */
+    readonly candidates: (id: ID) => Effect.Effect<IntegrationConnection.Info[]>
+    /** Pins one account of an integration. */
+    readonly activate: (credentialID: Credential.ID) => Effect.Effect<void>
+    /** Enables or disables one stored account. */
+    readonly setEnabled: (credentialID: Credential.ID, enabled: boolean) => Effect.Effect<void>
+    /** Moves one stored account up or down in priority order. */
+    readonly move: (credentialID: Credential.ID, delta: number) => Effect.Effect<void>
+    /**
+     * Cools down the account that served the last request and reports whether
+     * another account is available for an immediate retry.
+     */
+    readonly failover: (id: ID) => Effect.Effect<boolean>
+    /** Returns the rotation policy of an integration. */
+    readonly policy: (id: ID) => Effect.Effect<Credential.Policy>
+    /** Replaces the rotation policy of an integration. */
+    readonly setPolicy: (id: ID, policy: Credential.Policy) => Effect.Effect<void>
+    // kilocode_change end
     /** Resolves a connection into usable credential material. */
     readonly resolve: (
       connection: IntegrationConnection.Info,
@@ -287,20 +306,52 @@ export const locationLayer = Layer.effect(
       finalize: () => events.publish(Event.Updated, {}).pipe(Effect.asVoid),
     })
 
-    const resolveConnections = (entry: Entry | undefined, saved: readonly Credential.Info[]) => {
-      const credentials = saved
-        .map((credential) => ({
-          type: "credential" as const,
-          id: credential.id,
-          label: credential.label,
-        }))
-        .toReversed()
+    // kilocode_change start - order stored accounts by the configured rotation strategy
+    const resolveConnections = (
+      entry: Entry | undefined,
+      saved: readonly Credential.Info[],
+      policy: Credential.Policy,
+      now: number,
+    ) => {
+      const rank = (credential: Credential.Info) => {
+        if (credential.enabled === false) return 3
+        if (credential.lockedUntil !== undefined && credential.lockedUntil > now) return 2
+        return 0
+      }
+      const ordered = [...saved].sort((a, b) => {
+        const state = rank(a) - rank(b)
+        if (state !== 0) return state
+        const pinned = Number(b.active === true) - Number(a.active === true)
+        const priority = (a.priority ?? 0) - (b.priority ?? 0)
+        if (policy.strategy === "manual") return pinned || priority
+        if (policy.strategy === "round-robin") return (a.lastUsed ?? 0) - (b.lastUsed ?? 0) || priority
+        return priority || pinned
+      })
+      const credentials = ordered.map((credential) => ({
+        type: "credential" as const,
+        id: credential.id,
+        label: credential.label,
+        active: credential.active === true,
+        enabled: credential.enabled !== false,
+        priority: credential.priority ?? 0,
+        ...(credential.lockedUntil === undefined ? {} : { lockedUntil: credential.lockedUntil }),
+      }))
       const env = (entry?.methods ?? [])
         .filter((method) => method.type === "env")
         .flatMap((method) => method.names.filter((name) => process.env[name]))
         .map((name) => ({ type: "env" as const, name }))
       return [...credentials, ...env]
     }
+
+    const connections = Effect.fnUntraced(function* (entry: Entry | undefined, id: ID) {
+      const [saved, policy, now] = yield* Effect.all([
+        credentials.list(id),
+        credentials.policy(id),
+        Clock.currentTimeMillis,
+      ])
+      return resolveConnections(entry, saved, policy, now)
+    })
+    // kilocode_change end
 
     const project = (entry: Entry, connections: IntegrationConnection.Info[]) =>
       new Info({
@@ -406,19 +457,70 @@ export const locationLayer = Layer.effect(
       get: Effect.fn("Integration.get")(function* (id) {
         const entry = state.get().integrations.get(id)
         if (!entry) return undefined
-        return project(entry, resolveConnections(entry, yield* credentials.list(id)))
+        return project(entry, yield* connections(entry, id)) // kilocode_change
       }),
+      // kilocode_change start - connection resolution is policy aware
       list: Effect.fn("Integration.list")(function* () {
-        const saved = Map.groupBy(yield* credentials.all(), (credential) => credential.integrationID)
-        return Array.from(state.get().integrations.values(), (entry) =>
-          project(entry, resolveConnections(entry, saved.get(entry.ref.id) ?? [])),
-        ).toSorted((a, b) => a.name.localeCompare(b.name))
+        const generated = state.get().integrations.values()
+        const result: Info[] = []
+        for (const entry of generated) result.push(project(entry, yield* connections(entry, entry.ref.id)))
+        return result.toSorted((a, b) => a.name.localeCompare(b.name))
       }),
+      // kilocode_change end
       connection: {
         active: Effect.fn("Integration.connection.active")(function* (id) {
           const entry = state.get().integrations.get(id)
-          return resolveConnections(entry, yield* credentials.list(id))[0]
+          // kilocode_change start - pick the account through the rotation policy
+          return (yield* connections(entry, id))[0]
         }),
+        // kilocode_change end
+        // kilocode_change start - multi-account rotation
+        candidates: Effect.fn("Integration.connection.candidates")(function* (id) {
+          const entry = state.get().integrations.get(id)
+          return yield* connections(entry, id)
+        }),
+        activate: Effect.fn("Integration.connection.activate")(function* (credentialID) {
+          const credential = yield* credentials.get(credentialID)
+          yield* credentials.activate(credentialID)
+          if (credential) yield* events.publish(Event.ConnectionUpdated, { integrationID: credential.integrationID })
+          yield* events.publish(Event.Updated, {})
+        }),
+        setEnabled: Effect.fn("Integration.connection.setEnabled")(function* (credentialID, enabled) {
+          const credential = yield* credentials.get(credentialID)
+          yield* credentials.setEnabled(credentialID, enabled)
+          if (credential) yield* events.publish(Event.ConnectionUpdated, { integrationID: credential.integrationID })
+          yield* events.publish(Event.Updated, {})
+        }),
+        move: Effect.fn("Integration.connection.move")(function* (credentialID, delta) {
+          const credential = yield* credentials.get(credentialID)
+          yield* credentials.move(credentialID, delta)
+          if (credential) yield* events.publish(Event.ConnectionUpdated, { integrationID: credential.integrationID })
+          yield* events.publish(Event.Updated, {})
+        }),
+        failover: Effect.fn("Integration.connection.failover")(function* (id) {
+          const [entry, policy, now] = yield* Effect.all([
+            Effect.succeed(state.get().integrations.get(id)),
+            credentials.policy(id),
+            Clock.currentTimeMillis,
+          ])
+          if (!policy.failover) return false
+          const current = (yield* connections(entry, id))[0]
+          if (!current || current.type !== "credential") return false
+          yield* credentials.lock(current.id, now + policy.cooldown)
+          yield* events.publish(Event.ConnectionUpdated, { integrationID: id })
+          yield* events.publish(Event.Updated, {})
+          const next = (yield* connections(entry, id))[0]
+          if (!next || next.type !== "credential" || next.id === current.id) return false
+          yield* credentials.touch(next.id)
+          return true
+        }),
+        policy: (id) => credentials.policy(id),
+        setPolicy: Effect.fn("Integration.connection.setPolicy")(function* (id, policy) {
+          yield* credentials.setPolicy(id, policy)
+          yield* events.publish(Event.ConnectionUpdated, { integrationID: id })
+          yield* events.publish(Event.Updated, {})
+        }),
+        // kilocode_change end
         resolve: Effect.fn("Integration.connection.resolve")(function* (connection) {
           if (connection.type === "env") {
             const key = process.env[connection.name]
