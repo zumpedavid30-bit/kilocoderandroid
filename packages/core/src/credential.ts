@@ -307,14 +307,14 @@ export const layer = Layer.effect(
     // kilocode_change start - process-local workspace credentials override host storage without being persisted
     const content = process.env.KILO_AUTH_CONTENT
     const injected = yield* content === undefined
-      ? Effect.succeed(new Map<Integration.ID, Info>())
+      ? Effect.succeed(new Map<ID, Info>())
       : Effect.try({
           try: () => JSON.parse(content) as unknown,
           catch: (cause) => cause,
         }).pipe(
           Effect.flatMap((raw) => {
             if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-              return Effect.succeed(new Map<Integration.ID, Info>())
+              return Effect.succeed(new Map<ID, Info>())
             }
             const decode = Schema.decodeUnknownOption(LegacyAuth)
             return Effect.succeed(
@@ -323,33 +323,35 @@ export const layer = Layer.effect(
                   const decoded = decode(raw)
                   if (Option.isNone(decoded) || decoded.value.type === "wellknown") return []
                   const integration = Integration.ID.make(name.replace(/\/+$/, ""))
-                  return [
-                    [
-                      integration,
-                      new Info({
-                        id: ID.make(`cred_env_${Buffer.from(integration).toString("base64url")}`),
-                        integrationID: integration,
-                        label: "Environment",
-                        value: legacyValue(integration, decoded.value),
-                        active: true,
-                        enabled: true,
-                        priority: 0,
-                      }),
-                    ] as const,
-                  ]
+                  // kilocode_change - keep every injected account addressable by credential id
+                  const credential = new Info({
+                    id: ID.make(`cred_env_${Buffer.from(integration).toString("base64url")}`),
+                    integrationID: integration,
+                    label: "Environment",
+                    value: legacyValue(integration, decoded.value),
+                    active: true,
+                    enabled: true,
+                    priority: 0,
+                  })
+                  return [[credential.id, credential] as const]
                 }),
               ),
             )
           }),
           Effect.catch((cause) =>
             Effect.logWarning("invalid KILO_AUTH_CONTENT; using no process-local credentials", { cause }).pipe(
-              Effect.as(new Map<Integration.ID, Info>()),
+              Effect.as(new Map<ID, Info>()),
             ),
           ),
         )
     const isolated = content !== undefined
     const local = new Map(injected)
-    const find = (id: ID) => [...local.values()].find((credential) => credential.id === id)
+    const find = (id: ID) => local.get(id)
+    // kilocode_change - process-local credentials rotate like stored ones
+    const saved = (integration: Integration.ID) =>
+      [...local.values()]
+        .filter((credential) => credential.integrationID === integration)
+        .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
 
     const lock = Semaphore.makeUnsafe(1)
     const writeLegacy = (integration: Integration.ID) =>
@@ -410,7 +412,17 @@ export const layer = Layer.effect(
         .pipe(Effect.orDie)
 
     const activate = Effect.fn("Credential.activate")(function* (id: ID) {
-      if (isolated) return
+      // kilocode_change start
+      if (isolated) {
+        const target = local.get(id)
+        if (!target) return
+        for (const credential of [...local.values()]) {
+          if (credential.integrationID !== target.integrationID) continue
+          local.set(credential.id, new Info({ ...credential, active: credential.id === id }))
+        }
+        return
+      }
+      // kilocode_change end
       const row = yield* db.select().from(CredentialTable).where(eq(CredentialTable.id, id)).get().pipe(Effect.orDie)
       if (!row?.integration_id) return
       yield* db
@@ -438,19 +450,22 @@ export const layer = Layer.effect(
       label?: string
       priority?: number
     }) {
+      // kilocode_change start - isolated accounts keep their own rotation state
       if (isolated) {
+        const existing = saved(input.integrationID)
         const credential = new Info({
           id: ID.create(),
           integrationID: input.integrationID,
           label: input.label ?? suffix(input.value),
           value: input.value,
-          active: true,
+          active: !existing.some((item) => item.active === true),
           enabled: true,
-          priority: 0,
+          priority: input.priority ?? existing.length,
         })
-        local.set(credential.integrationID, credential)
+        local.set(credential.id, credential)
         return credential
       }
+      // kilocode_change end
       const credential = yield* db
         .transaction((tx) =>
           Effect.gen(function* () {
@@ -516,10 +531,7 @@ export const layer = Layer.effect(
       }),
       list: Effect.fn("Credential.list")(function* (integrationID) {
         // kilocode_change start
-        if (isolated) {
-          const credential = local.get(integrationID)
-          return credential ? [credential] : []
-        }
+        if (isolated) return saved(integrationID)
         // kilocode_change end
         return (yield* rows(integrationID)).flatMap((row) => {
           const credential = stored(row)
@@ -539,7 +551,7 @@ export const layer = Layer.effect(
           const credential = find(id)
           if (!credential) return
           local.set(
-            credential.integrationID,
+            credential.id,
             new Info({
               ...credential,
               label: updates.label ?? credential.label,
@@ -562,7 +574,12 @@ export const layer = Layer.effect(
         // kilocode_change start - isolated removals remain process-local
         if (isolated) {
           const credential = find(id)
-          if (credential) local.delete(credential.integrationID)
+          if (!credential) return
+          local.delete(id)
+          if (credential.active === true) {
+            const next = saved(credential.integrationID).at(-1)
+            if (next) local.set(next.id, new Info({ ...next, active: true }))
+          }
           return
         }
         const row = yield* db.select().from(CredentialTable).where(eq(CredentialTable.id, id)).get().pipe(Effect.orDie)
@@ -586,7 +603,7 @@ export const layer = Layer.effect(
       setEnabled: Effect.fn("Credential.setEnabled")(function* (id, enabled) {
         if (isolated) {
           const credential = find(id)
-          if (credential) local.set(credential.integrationID, new Info({ ...credential, enabled }))
+          if (credential) local.set(credential.id, new Info({ ...credential, enabled }))
           return
         }
         const row = yield* db.select().from(CredentialTable).where(eq(CredentialTable.id, id)).get().pipe(Effect.orDie)

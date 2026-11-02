@@ -57,7 +57,8 @@ export const Policy = Schema.Struct({
 }).annotate({ identifier: "Credential.Policy" })
 export type Policy = Schema.Schema.Type<typeof Policy>
 
-export const defaultPolicy: Policy = { strategy: "priority", failover: true, cooldown: 60_000 }
+// Pinning is the default so a freshly stored key takes effect immediately; rotation is opt-in.
+export const defaultPolicy: Policy = { strategy: "manual", failover: true, cooldown: 60_000 }
 
 /** Human label candidates for a stored secret; UIs offer the suffix as the default. */
 export const suffix = (value: Value) => (value.type === "key" ? value.key.slice(-4) : "account")

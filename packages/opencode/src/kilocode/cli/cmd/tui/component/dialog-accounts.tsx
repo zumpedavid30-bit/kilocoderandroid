@@ -46,7 +46,7 @@ export function DialogAccounts(props: { providerID: string; providerName?: strin
   const { theme } = useTheme()
   const client = sdk.client.provider.accounts
   const [list, setList] = createSignal<Account[]>([])
-  const [policy, setPolicy] = createSignal<Policy>({ strategy: "priority", failover: true, cooldown: 60_000 })
+  const [policy, setPolicy] = createSignal<Policy>({ strategy: "manual", failover: true, cooldown: 60_000 })
   const [error, setError] = createSignal<string>()
 
   function fail(message: string) {

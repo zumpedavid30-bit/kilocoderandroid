@@ -348,12 +348,24 @@ describe("Integration", () => {
             value: Credential.Key.make({ type: "key", key: "b" }),
           })
 
-          // Stored credentials and detected env vars appear as connections.
+          // kilocode_change start - stored accounts keep their rotation order and state
           expect((yield* integrations.get(integrationID))?.connections).toEqual([
+            // the pinned account leads, the remaining accounts follow in priority order
             {
               type: "credential",
               id: personal.id,
               label: "Personal",
+              active: true,
+              enabled: true,
+              priority: 1,
+            },
+            {
+              type: "credential",
+              id: work.id,
+              label: "Work",
+              active: false,
+              enabled: true,
+              priority: 0,
             },
             { type: "env", name: "INTEGRATION_TEST_ACME_KEY" },
           ])
@@ -361,8 +373,12 @@ describe("Integration", () => {
             type: "credential",
             id: personal.id,
             label: "Personal",
+            active: true,
+            enabled: true,
+            priority: 1,
           })
           expect(work.id).not.toBe(personal.id)
+          // kilocode_change end
         }),
       (previous) =>
         Effect.sync(() => {

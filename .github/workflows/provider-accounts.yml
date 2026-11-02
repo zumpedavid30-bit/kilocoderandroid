@@ -58,6 +58,13 @@ jobs:
       - name: Build cli
         working-directory: packages/opencode
         run: bun run script/build.ts --single --skip-install
+        env:
+          KILO_VERSION: 0.0.0-accounts
+          # The bundled bubblewrap helper needs Zig; the smoke workflow skips it the same way.
+          KILO_SKIP_BUNDLED_BWRAP: "1"
+      - name: Smoke binary
+        working-directory: packages/opencode
+        run: ./dist/@kilocode/cli-linux-x64/bin/kilo --version
       - name: Upload cli artifact
         uses: actions/upload-artifact@v4
         with:

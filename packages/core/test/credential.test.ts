@@ -121,11 +121,13 @@ describe("Credential", () => {
                 label: "Temporary",
                 value: Credential.Key.make({ type: "key", key: "temporary" }),
               })
-              expect(yield* service.list(kilocode)).toEqual([created])
+              // kilocode_change start - an isolated account is added next to the injected one
+              expect((yield* service.list(kilocode)).map((item) => item.id)).toContain(created.id)
               yield* service.update(created.id, { label: "Updated" })
-              expect((yield* service.list(kilocode))[0]?.label).toBe("Updated")
+              expect((yield* service.list(kilocode)).find((item) => item.id === created.id)?.label).toBe("Updated")
               yield* service.remove(created.id)
-              expect(yield* service.list(kilocode)).toEqual([])
+              expect((yield* service.list(kilocode)).map((item) => item.id)).not.toContain(created.id)
+              // kilocode_change end
 
               delete process.env.KILO_AUTH_CONTENT
               const stored = yield* Effect.gen(function* () {
