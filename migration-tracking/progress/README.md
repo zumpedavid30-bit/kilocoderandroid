@@ -8,20 +8,20 @@ Measures Kilo's v1 delta: Kilo `main` pinned at `fb7e96eda540` (the v1 target) c
 
 ## Summary
 
-**646 / 9817 cells done (6.6%)**, 37 dropped. `█░░░░░░░░░░░░░░░`
+**655 / 9814 cells done (6.7%)**, 40 dropped. `█░░░░░░░░░░░░░░░`
 
 | Kind | Done | Total | % |
 |---|---:|---:|---:|
-| module | 524 | 3543 | 14.8% |
-| api | 5 | 39 | 12.8% |
+| module | 530 | 3542 | 15% |
+| api | 6 | 39 | 15.4% |
 | patch | 70 | 3443 | 2% |
-| test | 47 | 2792 | 1.7% |
+| test | 49 | 2790 | 1.8% |
 
 Not counted: 1428 branding-only hunks (rename script territory), 561 marker-only hunks (block boundaries), generated files. Patch attribution: 0 by tag, 261 by import, 97 by identifier, 4163 unattributed (see below).
 
 Landed by rung, for patch cells closed by a done-proof: 42 plugin, 4 host, 3 seam, 6 patch.
 
-Ratchets: 27 core-internal upstream modules imported by Kilo packages and adapters (`@opencode/core/app`, `@opencode/core/bus`, `@opencode/core/config`, `@opencode/core/config/discovery`, `@opencode/core/config/normalize`, `@opencode/core/config/plugin/skill-file`, `@opencode/core/effect/app-node-platform`, `@opencode/core/model`, `@opencode/core/model-resolver`, `@opencode/core/permission`, `@opencode/core/plugin/provider/openai`, `@opencode/core/plugin/sdk`, `@opencode/core/plugin/system-prompt/anthropic.txt`, `@opencode/core/plugin/system-prompt/gpt-astra.txt`, `@opencode/core/plugin/system-prompt/gpt.txt`, `@opencode/core/plugin/system-prompt/kimi.txt`, `@opencode/core/plugin/system-prompt/trinity.txt`, `@opencode/core/provider`, `@opencode/core/rpc`, `@opencode/core/schema`, `@opencode/core/session/runner/model`, `@opencode/core/session/runner/prompt/system.txt`, `@opencode/core/session/system-prompt`, `@opencode/core/shell`, `@opencode/core/tool-output`, `@opencode/core/util/wildcard`, `@opencode/core/variant`); 60 shared patches by rung: 35 seam, 25 patch (`script/upstream/shared-patches.json`).
+Ratchets: 27 core-internal upstream modules imported by Kilo packages and adapters (`@opencode/core/app`, `@opencode/core/bus`, `@opencode/core/config`, `@opencode/core/config/discovery`, `@opencode/core/config/normalize`, `@opencode/core/config/plugin/skill-file`, `@opencode/core/effect/app-node-platform`, `@opencode/core/model`, `@opencode/core/model-resolver`, `@opencode/core/permission`, `@opencode/core/plugin/provider/openai`, `@opencode/core/plugin/sdk`, `@opencode/core/plugin/system-prompt/anthropic.txt`, `@opencode/core/plugin/system-prompt/gpt-astra.txt`, `@opencode/core/plugin/system-prompt/gpt.txt`, `@opencode/core/plugin/system-prompt/kimi.txt`, `@opencode/core/plugin/system-prompt/trinity.txt`, `@opencode/core/provider`, `@opencode/core/rpc`, `@opencode/core/schema`, `@opencode/core/session/runner/model`, `@opencode/core/session/runner/prompt/system.txt`, `@opencode/core/session/system-prompt`, `@opencode/core/shell`, `@opencode/core/tool-output`, `@opencode/core/util/wildcard`, `@opencode/core/variant`); 69 shared patches by rung: 44 seam, 25 patch (`script/upstream/shared-patches.json`).
 
 ## History
 
@@ -40,7 +40,8 @@ One point per day from the committed `progress.json` on v2's first-parent histor
 | 2026-10-26 | 157 | 9828 | 1.6% |
 | 2026-10-28 | 594 | 9819 | 6% |
 | 2026-10-29 | 597 | 9819 | 6.1% |
-| now | 646 | 9817 | 6.6% |
+| 2026-10-30 | 646 | 9817 | 6.6% |
+| now | 655 | 9814 | 6.7% |
 
 ## Features
 
@@ -129,7 +130,7 @@ Cells per kind as done/total. A cell is done when it exists on v2 by the rules b
 | session-revert | 0/1 |  | 0/1 | 0/2 | 0/4 | 0% | `░░░░░░░░░░░░░░░░` |  |
 | session-title | 0/1 |  | 0/1 | 0/2 | 0/4 | 0% | `░░░░░░░░░░░░░░░░` |  |
 | shell | 0/1 |  |  | 0/1 | 0/2 | 0% | `░░░░░░░░░░░░░░░░` |  |
-| skill | 0/8 | 0/1 | 0/4 | 0/9 | 0/22 | 0% | `░░░░░░░░░░░░░░░░` |  |
+| skill | 1/8 | 1/1 | 0/4 | 1/9 | 3/22 | 13.6% | `██░░░░░░░░░░░░░░` |  |
 | snapshot | 0/8 | 0/2 | 0/2 | 0/11 | 0/23 | 0% | `░░░░░░░░░░░░░░░░` |  |
 | stdio-tap | 0/1 |  | 0/3 |  | 0/4 | 0% | `░░░░░░░░░░░░░░░░` |  |
 | steering | 0/5 |  | 0/1 | 0/4 | 0/10 | 0% | `░░░░░░░░░░░░░░░░` |  |
@@ -143,7 +144,7 @@ Cells per kind as done/total. A cell is done when it exists on v2 by the rules b
 | ui | 139/248 |  | 0/1 | 0/18 | 139/267 | 52.1% | `████████░░░░░░░░` |  |
 | usage-cost | 0/4 |  |  | 0/5 | 0/9 | 0% | `░░░░░░░░░░░░░░░░` |  |
 | util | 0/8 |  | 0/4 | 0/8 | 0/20 | 0% | `░░░░░░░░░░░░░░░░` |  |
-| vscode | 306/1439 |  |  | 14/616 | 320/2055 | 15.6% | `██░░░░░░░░░░░░░░` |  |
+| vscode | 311/1438 |  |  | 15/614 | 326/2052 | 15.9% | `███░░░░░░░░░░░░░` |  |
 | wakeup | 0/5 | 0/1 | 0/1 | 0/4 | 0/11 | 0% | `░░░░░░░░░░░░░░░░` |  |
 | web-ui | 0/154 |  |  |  | 0/154 | 0% | `░░░░░░░░░░░░░░░░` |  |
 | worktree | 0/4 | 0/1 | 0/1 | 0/6 | 0/12 | 0% | `░░░░░░░░░░░░░░░░` |  |
@@ -320,8 +321,11 @@ Hunks in shared upstream files with no `kilocode_change(<feature>)` tag, no Kilo
 - `module:packages/kilo-gateway/src/types/jsx.d.ts`: JSX type shim that let the v1 package compile TUI code outside the TUI package. The v2 TUI code is in packages/tui. (gateway-finish)
 - `module:packages/kilo-gateway/src/types/tui.d.ts`: Type shim for TUI runtime modules that let the v1 package compile TUI code outside the TUI package. The v2 TUI code is in packages/tui. (gateway-finish)
 - `module:packages/kilo-gateway/test/provider.test.ts`: It tested v1 buildRequestHeaders, where request headers replace the defaults. v2 merges the Kilo headers last on purpose, so that they replace the OpenCode referer and title of the upstream KiloPlugin; packages/core/test/kilocode/gateway.test.ts checks the result. (gateway-finish)
+- `module:packages/kilo-vscode/src/kilo-provider/config-bindings.ts`: ConfigBindings guarded v1 config.overlayUpdate with a connection generation, project generation and target revision, and expired a binding after reconnect, trust revocation, removal or save. v2 writes the config files in the extension host (src/settings-host.ts configWrite with the serialize chain) and the webview has no revision-bound target, so the class has no v2 caller. src/settings-host.ts owns the file target and the write order instead. (open-config-picker)
+- `module:packages/kilo-vscode/tests/unit/config-bindings.test.ts`: Tests the removed v1 ConfigBindings class (immutable read target, expiry on reconnect, trust, removal and save, and publication after a concurrent refresh). v2 host writes through src/settings-host.ts with the serialize chain and has no bindings. (open-config-picker)
 - `module:packages/kilo-vscode/tests/unit/mcp-auth-service.test.ts`: Tests the v1 host McpAuthService, which v2 removes: the server owns MCP OAuth state (integration.oauth.*) and the webview calls it directly in webview-ui/src/v2/mcp.ts. (settings-mcp)
 - `module:packages/kilo-vscode/tests/unit/mcp-auth-status.test.ts`: Tests needsAuthNames from the removed v1 host service; v2 reads McpServer.status from the server. (settings-mcp)
+- `module:packages/kilo-vscode/tests/unit/open-config-message.test.ts`: Tests configMessage, the v1 webview helper that built the openConfigFile message and its localized labels. v2 has no such message: the webview posts openFile and the host builds the quick pick, so the label assertions are not carried. (open-config-picker)
 - `module:packages/opencode/src/kilocode/agent/scout.txt`: Scout prompt. Scout (experimental, default off) is not ported. U-E11-05 records the decision. (agents-plugin)
 - `module:packages/opencode/src/kilocode/marketplace/detection.ts`: Runtime detection of installed marketplace items (skill/MCP/agent/plugin scans) is intentionally replaced: v2 lists only marketplace-managed records from the server database (the `kv` table) and reports their status by comparing content fingerprints with the files on disk (packages/kilo-plugin/src/marketplace/index.ts installed/restore, installer.ts inspect). Native/manual items are not adopted, and agent/plugin detection re-lands with their content units. Decision recorded under U-E2-23 in the former plan (`e39551c9b0:migration-tracking/plans/kilo-v2-migration-plan.md`); marketplace epic #15307. (kilo-new-marketplace)
 - `module:packages/opencode/src/kilocode/marketplace/plugin-config.ts`: Plugin config patching (patchPlugin) is not carried on v2: plugin/bundle marketplace content is out of scope for the default skills/MCP unit and re-lands with the plugin content unit. Decision recorded under U-E2-23 in the former plan (`e39551c9b0:migration-tracking/plans/kilo-v2-migration-plan.md`); marketplace epic #15307. (kilo-new-marketplace)

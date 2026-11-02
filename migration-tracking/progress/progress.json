@@ -4,19 +4,19 @@
     "v1Base": "8100c68b507b53aac6b891edbc3040a6011d8969"
   },
   "summary": {
-    "done": 646,
-    "total": 9817,
-    "percent": 6.6,
-    "dropped": 37,
+    "done": 655,
+    "total": 9814,
+    "percent": 6.7,
+    "dropped": 40,
     "kinds": [
       {
         "kind": "module",
-        "done": 524,
-        "total": 3543
+        "done": 530,
+        "total": 3542
       },
       {
         "kind": "api",
-        "done": 5,
+        "done": 6,
         "total": 39
       },
       {
@@ -26,8 +26,8 @@
       },
       {
         "kind": "test",
-        "done": 47,
-        "total": 2792
+        "done": 49,
+        "total": 2790
       }
     ],
     "landed": {
@@ -38,7 +38,7 @@
     },
     "coreImports": 27,
     "sharedPatches": {
-      "seam": 35,
+      "seam": 44,
       "patch": 25
     }
   },
@@ -2101,16 +2101,16 @@
     },
     {
       "feature": "skill",
-      "done": 0,
+      "done": 3,
       "total": 22,
       "dropped": 0,
       "kinds": {
         "module": {
-          "done": 0,
+          "done": 1,
           "total": 8
         },
         "api": {
-          "done": 0,
+          "done": 1,
           "total": 1
         },
         "patch": {
@@ -2118,7 +2118,7 @@
           "total": 4
         },
         "test": {
-          "done": 0,
+          "done": 1,
           "total": 9
         }
       }
@@ -6049,13 +6049,13 @@
     },
     {
       "feature": "vscode",
-      "done": 320,
-      "total": 2055,
-      "dropped": 2,
+      "done": 326,
+      "total": 2052,
+      "dropped": 5,
       "kinds": {
         "module": {
-          "done": 306,
-          "total": 1439
+          "done": 311,
+          "total": 1438
         },
         "api": {
           "done": 0,
@@ -6066,8 +6066,8 @@
           "total": 0
         },
         "test": {
-          "done": 14,
-          "total": 616
+          "done": 15,
+          "total": 614
         }
       }
     },
@@ -6205,6 +6205,7 @@
     "api:POST /kilocode/marketplace/install",
     "api:POST /kilocode/marketplace/remove",
     "api:POST /kilocode/provider-usage/refresh",
+    "api:POST /kilocode/skill/remove",
     "module:packages/core/src/kilocode/oauth/page.ts",
     "module:packages/core/src/kilocode/provider-usage.ts",
     "module:packages/core/src/kilocode/provider-usage/cloud.ts",
@@ -6430,6 +6431,7 @@
     "module:packages/kilo-vscode/src/kilo-provider/config-file.ts",
     "module:packages/kilo-vscode/src/kilo-provider/font-size.ts",
     "module:packages/kilo-vscode/src/kilo-provider/mcp-oauth.ts",
+    "module:packages/kilo-vscode/src/kilo-provider/open-config.ts",
     "module:packages/kilo-vscode/src/kilo-provider/remove-config-item.ts",
     "module:packages/kilo-vscode/src/kilo-provider/save-image.ts",
     "module:packages/kilo-vscode/src/legacy-migration/sessions/lib/messages.ts",
@@ -6542,6 +6544,7 @@
     "module:packages/kilo-vscode/src/services/mcp-auth/service.ts",
     "module:packages/kilo-vscode/src/services/mcp-auth/status.ts",
     "module:packages/kilo-vscode/src/shared/custom-provider.ts",
+    "module:packages/kilo-vscode/src/shared/fetch-models.ts",
     "module:packages/kilo-vscode/src/shared/image-data-url.ts",
     "module:packages/kilo-vscode/src/shared/session-title.ts",
     "module:packages/kilo-vscode/src/util/process.ts",
@@ -6554,6 +6557,7 @@
     "module:packages/kilo-vscode/tests/unit/mcp-oauth-config.test.ts",
     "module:packages/kilo-vscode/tests/unit/mode-io.test.ts",
     "module:packages/kilo-vscode/tests/unit/mode-model.test.ts",
+    "module:packages/kilo-vscode/tests/unit/open-config.test.ts",
     "module:packages/kilo-vscode/tests/unit/permission-editor.test.ts",
     "module:packages/kilo-vscode/tests/unit/provider-visibility.test.ts",
     "module:packages/kilo-vscode/tests/unit/remove-config-item.test.ts",
@@ -6625,6 +6629,7 @@
     "module:packages/kilo-vscode/webview-ui/src/components/settings/SettingsSearch.tsx",
     "module:packages/kilo-vscode/webview-ui/src/components/settings/SettingsSearchResults.tsx",
     "module:packages/kilo-vscode/webview-ui/src/components/settings/agent-behaviour-patches.ts",
+    "module:packages/kilo-vscode/webview-ui/src/components/settings/agent-behaviour/WorkflowsTab.tsx",
     "module:packages/kilo-vscode/webview-ui/src/components/settings/mcp-oauth-config.ts",
     "module:packages/kilo-vscode/webview-ui/src/components/settings/mode-io.ts",
     "module:packages/kilo-vscode/webview-ui/src/components/settings/mode-model.ts",
@@ -6645,6 +6650,7 @@
     "module:packages/kilo-vscode/webview-ui/src/components/shared/WorkingIndicator.tsx",
     "module:packages/kilo-vscode/webview-ui/src/components/shared/working-indicator-utils.ts",
     "module:packages/kilo-vscode/webview-ui/src/context/config.tsx",
+    "module:packages/kilo-vscode/webview-ui/src/context/cost-alert.ts",
     "module:packages/kilo-vscode/webview-ui/src/context/language-dictionaries/ar.ts",
     "module:packages/kilo-vscode/webview-ui/src/context/language-dictionaries/br.ts",
     "module:packages/kilo-vscode/webview-ui/src/context/language-dictionaries/bs.ts",
@@ -6730,6 +6736,7 @@
     "module:packages/kilo-vscode/webview-ui/src/utils/focus.ts",
     "module:packages/kilo-vscode/webview-ui/src/utils/ime-enter.ts",
     "module:packages/kilo-vscode/webview-ui/src/utils/keybind-tokens.ts",
+    "module:packages/kilo-vscode/webview-ui/src/utils/open-config.ts",
     "module:packages/kilo-vscode/webview-ui/src/utils/qrcode.ts",
     "module:packages/kilo-vscode/webview-ui/src/utils/typeahead.ts",
     "module:packages/kilo-vscode/webview-ui/src/utils/webview-message.ts",
@@ -6755,6 +6762,7 @@
     "module:packages/opencode/src/kilocode/plugins/sidebar-pr.tsx",
     "module:packages/opencode/src/kilocode/plugins/sidebar-usage-row.tsx",
     "module:packages/opencode/src/kilocode/plugins/sidebar-usage.tsx",
+    "module:packages/opencode/src/kilocode/skill-remove.ts",
     "module:packages/opencode/test/kilocode/agent-global-config-dirs.test.ts",
     "module:packages/opencode/test/kilocode/agent-permission-overrides.test.ts",
     "module:packages/opencode/test/kilocode/agent-skill-permissions.test.ts",
@@ -6770,6 +6778,7 @@
     "module:packages/opencode/test/kilocode/model-info-panel.types.test.ts",
     "module:packages/opencode/test/kilocode/news.test.ts",
     "module:packages/opencode/test/kilocode/sidebar-footer.test.ts",
+    "module:packages/opencode/test/kilocode/skill-remove.test.ts",
     "module:packages/opencode/test/kilocode/tui/usage.test.ts",
     "module:packages/schema/src/kilocode/provider-usage.ts",
     "module:packages/tui/src/kilocode/model-picker.ts",
@@ -6858,8 +6867,11 @@
     "module:packages/kilo-gateway/src/types/jsx.d.ts",
     "module:packages/kilo-gateway/src/types/tui.d.ts",
     "module:packages/kilo-gateway/test/provider.test.ts",
+    "module:packages/kilo-vscode/src/kilo-provider/config-bindings.ts",
+    "module:packages/kilo-vscode/tests/unit/config-bindings.test.ts",
     "module:packages/kilo-vscode/tests/unit/mcp-auth-service.test.ts",
     "module:packages/kilo-vscode/tests/unit/mcp-auth-status.test.ts",
+    "module:packages/kilo-vscode/tests/unit/open-config-message.test.ts",
     "module:packages/opencode/src/kilocode/agent/scout.txt",
     "module:packages/opencode/src/kilocode/marketplace/detection.ts",
     "module:packages/opencode/src/kilocode/marketplace/plugin-config.ts",

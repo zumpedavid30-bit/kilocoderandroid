@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 334" width="1000" height="334">
 <style>rect{stroke:#0d1117;stroke-width:.5}.d{fill:#2ea043}.o{fill:#6e7681}.x{fill:#d29922}.b{fill:none;stroke-width:2}text{font-family:sans-serif;fill:#fff;stroke:#0d1117;stroke-width:3;paint-order:stroke}</style>
 <rect x="0" y="0" width="1000" height="334" fill="#0d1117" stroke="none"/>
-<text x="4.00" y="21.00" font-size="16">Features: 10.6% (601/5666)</text>
-<g><title>vscode: 320/2055 (15.6%), 2 dropped</title>
+<text x="4.00" y="21.00" font-size="16">Features: 10.8% (610/5663)</text>
+<g><title>vscode: 326/2052 (15.9%), 5 dropped</title>
 <rect class="d" x="1.00" y="31.00" width="14.74" height="15.44"/>
 <rect class="d" x="15.74" y="31.00" width="14.74" height="15.44"/>
 <rect class="d" x="30.49" y="31.00" width="14.74" height="15.44"/>
@@ -34,7 +34,7 @@
 <rect class="d" x="65.33" y="61.89" width="16.08" height="15.44"/>
 <rect class="d" x="81.42" y="61.89" width="16.08" height="15.44"/>
 <rect class="d" x="97.50" y="61.89" width="16.08" height="15.44"/>
-<rect class="o" x="113.58" y="61.89" width="16.08" height="15.44"/>
+<rect class="d" x="113.58" y="61.89" width="16.08" height="15.44"/>
 <rect class="o" x="129.67" y="61.89" width="16.08" height="15.44"/>
 <rect class="o" x="145.75" y="61.89" width="16.08" height="15.44"/>
 <rect class="o" x="161.83" y="61.89" width="16.08" height="15.44"/>
@@ -2209,10 +2209,10 @@
 <rect class="o" x="379.61" y="254.93" width="4.80" height="4.66"/>
 <rect class="b" x="364.21" y="235.31" width="21.19" height="25.28"/>
 </g>
-<g><title>skill: 0/22 (0%)</title>
-<rect class="o" x="365.21" y="261.59" width="3.84" height="4.66"/>
-<rect class="o" x="369.05" y="261.59" width="3.84" height="4.66"/>
-<rect class="o" x="372.89" y="261.59" width="3.84" height="4.66"/>
+<g><title>skill: 3/22 (13.6%)</title>
+<rect class="d" x="365.21" y="261.59" width="3.84" height="4.66"/>
+<rect class="d" x="369.05" y="261.59" width="3.84" height="4.66"/>
+<rect class="d" x="372.89" y="261.59" width="3.84" height="4.66"/>
 <rect class="o" x="376.73" y="261.59" width="3.84" height="4.66"/>
 <rect class="o" x="380.57" y="261.59" width="3.84" height="4.66"/>
 <rect class="o" x="365.21" y="266.24" width="3.84" height="4.66"/>
